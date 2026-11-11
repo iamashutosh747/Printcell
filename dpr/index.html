@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DPR – Customer Dues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Customer Dues Report</h1>
+    <nav class="tabs hidden" id="tabs" aria-label="Views">
+      <button type="button" class="tab" data-view="customers" aria-pressed="true">Customer details</button>
+      <button type="button" class="tab" data-view="pdc" aria-pressed="false">PDC details</button>
+      <button type="button" class="tab" data-view="sent" aria-pressed="false">Sent cheques</button>
+    </nav>
+    <span class="asof" id="asof"></span>
+    <span class="spacer"></span>
+    <a href="https://printcell.ashutosh-sharma.com/" id="portal-link" class="hidden">All portals</a>
+    <a href="#" id="signout" class="hidden">Sign out</a>
+  </header>
+
+  <!-- Access code -->
+  <form id="login" class="login" autocomplete="off">
+    <h2>Open the report</h2>
+    <p class="muted">Enter your access code to see customer dues.</p>
+    <label for="code">Access code</label>
+    <div class="row">
+      <input id="code" type="password" autocomplete="current-password" required>
+      <button id="open" class="btn" type="submit">Open</button>
+    </div>
+    <div class="error" id="login-error"></div>
+  </form>
+
+  <!-- Status bar -->
+  <nav class="statusbar hidden" id="statusbar" aria-label="Filter by status"></nav>
+
+  <!-- Workspace -->
+  <main class="work hidden" id="work">
+    <section class="pane-list" aria-label="Customers">
+      <div class="tools">
+        <div>
+          <label for="search">Search customer</label>
+          <div class="pair">
+            <input id="search" type="search" placeholder="Name or GL code" autocomplete="off">
+            <select id="sort" class="sort" aria-label="Sort customers">
+              <option value="name">A–Z</option>
+              <option value="due">Highest dues</option>
+              <option value="risk">By status</option>
+            </select>
+          </div>
+        </div>
+        <select id="customer" class="cselect" aria-label="Customer">
+          <option value="">— Select a customer —</option>
+        </select>
+      </div>
+      <ul class="clist" id="clist"></ul>
+    </section>
+
+    <section class="pane-detail" id="detail-pane" aria-live="polite">
+      <div class="placeholder" id="placeholder">Pick a customer to see their status, bills and cheques.</div>
+
+      <div id="detail" class="hidden">
+        <div class="head">
+          <div class="band" id="d-band"><span class="st" id="d-status"></span><span class="why" id="d-why"></span></div>
+          <div class="who">
+            <h2 id="d-name"></h2>
+            <span class="muted" id="d-code"></span>
+            <div><button type="button" class="btn secondary" id="cust-export" style="margin-top:10px">Export PDF</button></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="k">Total dues</div><div class="v" id="s-due"></div></div>
+            <div class="stat"><div class="k">Total PDC</div><div class="v" id="s-pdc"></div></div>
+            <div class="stat"><div class="k">LBS (days since last bill)</div><div class="v" id="s-lbs"></div></div>
+            <div class="stat"><div class="k">LBP (days since oldest bill)</div><div class="v" id="s-lbp"></div></div>
+            <div class="stat"><div class="k">Credit days</div><div class="v" id="s-cd"></div></div>
+            <div class="stat"><div class="k">Bills past credit days</div><div class="v" id="s-l"></div></div>
+            <div class="stat"><div class="k">Bills past credit + 30 days</div><div class="v" id="s-l30"></div></div>
+            <div class="stat"><div class="k">Cheques past due date</div><div class="v" id="s-p"></div></div>
+            <div class="stat"><div class="k">Overdue cheques total</div><div class="v" id="s-pa"></div></div>
+          </div>
+        </div>
+
+        <div class="tables">
+          <div class="card">
+            <div class="card-head"><h3>Bills</h3><span class="muted" id="bills-count"></span></div>
+            <div class="tbl-wrap" id="bills"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>PDC</h3><span class="muted" id="pdc-count"></span></div>
+            <p class="split" id="pdc-split"></p>
+            <div class="tbl-wrap" id="pdcs"></div>
+          </div>
+        </div>
+
+        <details class="rules">
+          <summary>How the status is decided</summary>
+          <ol>
+            <li><span class="dot" style="--c:var(--s-green)"></span>Green: total dues are Rs 2,500 or less.</li>
+            <li><span class="dot" style="--c:var(--s-black)"></span>Black: cheques past their date, and bills past credit + 30 days exceed total PDC.</li>
+            <li><span class="dot" style="--c:var(--s-gray)"></span>Gray: cheques past their date.</li>
+            <li><span class="dot" style="--c:var(--s-blue)"></span>Blue: bills past credit + 30 days exceed total PDC.</li>
+            <li><span class="dot" style="--c:var(--s-red)"></span>Red: bills past credit days exceed total PDC.</li>
+            <li><span class="dot" style="--c:var(--s-yellow)"></span>Yellow: PDC covers bills past credit days, but the oldest bill (LBP) is past credit days.</li>
+            <li><span class="dot" style="--c:var(--s-green)"></span>Green: none of the above.</li>
+          </ol>
+          <p style="margin:8px 0 0">Rules are checked in this order; the first one that applies sets the status.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <!-- PDC details -->
+  <main class="pdcview hidden" id="pdcview" aria-label="PDC details">
+    <div class="pdc-search">
+      <label for="pdc-q">Find a cheque</label>
+      <input id="pdc-q" type="search" placeholder="Customer name, PDC no. or cheque no." autocomplete="off">
+    </div>
+    <div class="pdc-tools">
+      <div><label for="pdc-agent">Agent</label><select id="pdc-agent"></select></div>
+      <div><label for="pdc-status">Cheque date</label>
+        <select id="pdc-status">
+          <option value="all">All three</option>
+          <option value="Overdue">Overdue only</option>
+          <option value="Today">Today only</option>
+          <option value="Tomorrow">Tomorrow only</option>
+        </select></div>
+      <div><label for="pdc-sent">Sent today</label>
+        <select id="pdc-sent">
+          <option value="all">Show all</option>
+          <option value="unsent">Not sent yet</option>
+          <option value="sent">Sent only</option>
+        </select></div>
+      <div class="full"><button type="button" class="btn" id="pdc-export" style="width:100%">Export PDF</button></div>
+    </div>
+    <div class="pdc-counts" id="pdc-counts"></div>
+    <p class="pdc-msg" id="pdc-msg" role="status"></p>
+    <div class="card"><div class="tbl-wrap" id="pdc-table"></div></div>
+  </main>
+
+  <!-- Sent cheques -->
+  <main class="pdcview hidden" id="sentview" aria-label="Sent cheques">
+    <div class="pdc-tools">
+      <div><label for="sent-from">Sent from</label><input id="sent-from" type="date"></div>
+      <div><label for="sent-to">Sent to</label><input id="sent-to" type="date"></div>
+      <div><label for="sent-q">Find</label><input id="sent-q" type="search" placeholder="Customer or cheque no." autocomplete="off"></div>
+      <div class="full"><button type="button" class="btn" id="sent-export" style="width:100%">Export Excel</button></div>
+    </div>
+    <div class="pdc-counts" id="sent-counts"></div>
+    <p class="pdc-msg" id="sent-msg" role="status"></p>
+    <div class="card"><div class="tbl-wrap" id="sent-table"></div></div>
+  </main>
+
+<script src="app1.js"></script>
+<script src="app2.js"></script>
+<script src="app3.js"></script>
+<script src="app5.js"></script>
+<script src="app4.js"></script>
+<script src="export.js"></script>
+</body>
+</html>

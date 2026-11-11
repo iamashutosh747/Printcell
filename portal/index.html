@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Print Cell Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/">Print Cell</a>
+    <nav class="nav hidden" id="nav" aria-label="Sections">
+      <a href="#/" data-route="home">Portals</a>
+      <a href="#/admin" data-route="admin" class="hidden" id="nav-admin">People</a>
+      <a href="#/activity" data-route="activity" class="hidden" id="nav-activity">Activity</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="who hidden" id="who"></span>
+    <button type="button" class="link hidden" id="signout">Sign out</button>
+  </header>
+
+  <p class="boot" id="boot">Loading…</p>
+
+  <!-- Sign in -->
+  <main class="signin hidden" id="signin-view">
+    <form id="signin" class="panel" autocomplete="on">
+      <h1>Sign in</h1>
+      <p class="muted">One login for CSRC, Tasks and DPR.</p>
+      <label for="si-user">Username</label>
+      <input id="si-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label for="si-pass">Password</label>
+      <input id="si-pass" name="password" type="password" autocomplete="current-password" required>
+      <button class="btn wide" id="si-btn" type="submit">Sign in</button>
+      <p class="msg error" id="si-msg" role="alert"></p>
+    </form>
+  </main>
+
+  <!-- Home: the person's portals -->
+  <main class="page hidden" id="home-view">
+    <h1 id="hello"></h1>
+    <p class="muted lead" id="hello-sub">Choose where to work.</p>
+    <ul class="apps" id="apps"></ul>
+    <p class="msg error" id="apps-msg" role="alert"></p>
+
+    <details class="pw" id="pw-box">
+      <summary>Change my password</summary>
+      <form id="pw-form" class="pw-form">
+        <div><label for="pw-new">New password</label>
+          <input id="pw-new" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <div><label for="pw-again">Type it again</label>
+          <input id="pw-again" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <button class="btn" type="submit" id="pw-btn">Save password</button>
+      </form>
+      <p class="msg" id="pw-msg" role="status"></p>
+    </details>
+  </main>
+
+  <!-- Admin: people and access -->
+  <main class="page wide-page hidden" id="admin-view">
+    <div class="page-head">
+      <h1>People</h1>
+      <button type="button" class="btn" id="add-person">Add person</button>
+    </div>
+    <p class="muted lead">Who can sign in here, and which portals they can open.</p>
+
+    <form id="edit" class="panel edit hidden" novalidate>
+      <h2 id="edit-title">Add person</h2>
+      <div class="grid">
+        <div><label for="e-name">Full name</label><input id="e-name" required></div>
+        <div><label for="e-user">Username</label>
+          <input id="e-user" autocapitalize="none" spellcheck="false" required pattern="[a-z0-9._\-]{2,32}">
+          <p class="hint">Lowercase letters, numbers, dots or dashes. They type this to sign in.</p></div>
+        <div><label for="e-pass" id="e-pass-label">Password</label>
+          <input id="e-pass" type="password" autocomplete="new-password" minlength="8" maxlength="72">
+          <p class="hint" id="e-pass-hint">At least 8 characters. Leave blank to set it later.</p></div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="e-active" checked> Can sign in</label>
+          <label class="check"><input type="checkbox" id="e-admin"> Portal admin (manages people)</label>
+        </div>
+      </div>
+
+      <h3>Portals</h3>
+      <div class="grid">
+        <div><label for="e-csrc"><span class="sw" style="--c:var(--p-cyan)"></span>CSRC account</label>
+          <select id="e-csrc"></select></div>
+        <div><label for="e-tasks"><span class="sw" style="--c:var(--p-magenta)"></span>Tasks account</label>
+          <select id="e-tasks"></select></div>
+        <div><label for="e-dpr"><span class="sw" style="--c:var(--p-yellow)"></span>DPR access</label>
+          <select id="e-dpr">
+            <option value="">No access</option>
+            <option value="full">Full report</option>
+            <option value="pdc">PDC cheques only</option>
+            <option value="agent">One agent's customers</option>
+          </select></div>
+        <div class="hidden" id="e-agent-wrap"><label for="e-agent">Agent</label><select id="e-agent"></select></div>
+        <div class="checks hidden" id="e-export-wrap">
+          <label class="check"><input type="checkbox" id="e-export"> Can export DPR lists to PDF</label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit" id="e-save">Save</button>
+        <button class="btn secondary" type="button" id="e-cancel">Cancel</button>
+        <p class="msg error" id="e-msg" role="alert"></p>
+      </div>
+    </form>
+
+    <div class="panel flush"><div class="tbl-wrap" id="people"></div></div>
+    <p class="msg" id="people-msg" role="status"></p>
+  </main>
+
+  <!-- Admin: activity -->
+  <main class="page wide-page hidden" id="activity-view">
+    <h1>Activity</h1>
+    <p class="muted lead">Sign-ins and portal opens, newest first.</p>
+    <div class="filters">
+      <div><label for="f-person">Person</label><select id="f-person"></select></div>
+      <div><label for="f-event">What</label>
+        <select id="f-event">
+          <option value="">Everything</option>
+          <option value="sign_in">Signed in</option>
+          <option value="open_csrc">Opened CSRC</option>
+          <option value="open_tasks">Opened Tasks</option>
+          <option value="open_dpr">Opened DPR</option>
+        </select></div>
+    </div>
+    <div class="panel flush"><div class="tbl-wrap" id="activity"></div></div>
+    <p class="msg" id="activity-msg" role="status"></p>
+  </main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="portal.js"></script>
+</body>
+</html>
