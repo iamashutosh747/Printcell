@@ -18,6 +18,7 @@ Both web apps are plain static files: no build step, no dependencies. Deploy a f
 - **Open CSRC / Tasks:** the `portal-launch` function checks the person's access, creates a fresh session for their linked account and sends the browser to the app with that session in the URL hash. The app's Supabase client picks it up on load.
 - **Open DPR:** same hand-off, but DPR reads the person's own DPR role (`full`, `pdc` or `agent`, plus export on/off) from `portal_users`. DPR access codes still work.
 - `portal-admin` lets portal admins add people, link accounts, set DPR access and reset passwords. It checks the caller is an active admin on every request.
+- **Open Coverage** (coverage.ashutosh-sharma.com, the `toner-pilferage` repo): the coverage site has its own accounts and signed cookie. The portal posts the person's own token to the coverage site's `/sso` route, which asks the database who they are there (`portal_coverage_identity`) and sets the normal cookie. Only posts from the portal's address are accepted.
 - Sign-ins and app opens are logged to `portal_activity` (admins only).
 
 ## Deploying
@@ -40,4 +41,5 @@ None are stored in this repo. The Supabase publishable key that appears in the w
 ## Not included
 
 - **CSRC** (csrc.ashutosh-sharma.com) and **Tasks** (tasks.ashutosh-sharma.com) sources. They were not changed for the portal.
+- **Coverage** source lives in its own repo, `toner-pilferage` (dashboard in `dashboard/`). The portal needs its `/sso` route.
 - The **accounting-sync** project that feeds DPR.

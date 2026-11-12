@@ -10,6 +10,7 @@ const APPS: Record<string, { url: string; event: string; name: string }> = {
   csrc: { url: "https://csrc.ashutosh-sharma.com/", event: "open_csrc", name: "CSRC" },
   tasks: { url: "https://tasks.ashutosh-sharma.com/", event: "open_tasks", name: "Tasks" },
   dpr: { url: "https://dpr.ashutosh-sharma.com/", event: "open_dpr", name: "DPR" },
+  coverage: { url: "https://coverage.ashutosh-sharma.com/sso", event: "open_coverage", name: "Coverage" },
 };
 
 const cors = {
@@ -39,6 +40,21 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { /* handled below */ }
     const app = APPS[body.app ?? ""];
     if (!app) return fail(400, "Unknown portal.");
+
+    // Coverage has its own sign-in cookie. The portal posts the person's own token to the coverage
+    // site's /sso route, which asks the database who they are there (portal_coverage_identity).
+    // So here we only check access, log the open and say where to post.
+    if (body.app === "coverage") {
+      const { data: cv } = me.coverage_user
+        ? await admin.from("cov_users").select("username, active").eq("username", me.coverage_user).maybeSingle()
+        : { data: null };
+      if (!cv?.active) return fail(403, `You don't have ${app.name} access. Ask an admin.`);
+      await admin.from("portal_activity").insert({
+        user_id: me.id, username: me.username, event: app.event,
+        user_agent: (req.headers.get("user-agent") || "").slice(0, 300),
+      });
+      return json({ post: app.url });
+    }
 
     let targetId: string | null = null;
     if (body.app === "csrc" || body.app === "tasks") {

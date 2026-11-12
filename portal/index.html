@@ -29,7 +29,7 @@
   <main class="signin hidden" id="signin-view">
     <form id="signin" class="panel" autocomplete="on">
       <h1>Sign in</h1>
-      <p class="muted">One login for CSRC, Tasks and DPR.</p>
+      <p class="muted">One login for CSRC, Tasks, DPR and Coverage.</p>
       <label for="si-user">Username</label>
       <input id="si-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <label for="si-pass">Password</label>
@@ -89,6 +89,8 @@
           <select id="e-csrc"></select></div>
         <div><label for="e-tasks"><span class="sw" style="--c:var(--p-magenta)"></span>Tasks account</label>
           <select id="e-tasks"></select></div>
+        <div><label for="e-coverage"><span class="sw" style="--c:var(--p-key)"></span>Coverage account</label>
+          <select id="e-coverage"></select></div>
         <div><label for="e-dpr"><span class="sw" style="--c:var(--p-yellow)"></span>DPR access</label>
           <select id="e-dpr">
             <option value="">No access</option>
@@ -126,6 +128,7 @@
           <option value="open_csrc">Opened CSRC</option>
           <option value="open_tasks">Opened Tasks</option>
           <option value="open_dpr">Opened DPR</option>
+          <option value="open_coverage">Opened Coverage</option>
         </select></div>
     </div>
     <div class="panel flush"><div class="tbl-wrap" id="activity"></div></div>

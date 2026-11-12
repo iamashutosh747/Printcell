@@ -47,6 +47,13 @@ const link = (v: unknown) => {
   return v;
 };
 
+// A Coverage account is identified by its username (cov_users.username).
+const covUser = (v: unknown) => {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v !== "string" || !USERNAME.test(v)) throw new UserError("Pick a coverage account from the list.");
+  return v;
+};
+
 function clean(u: Record<string, unknown>) {
   const username = String(u.username ?? "").trim().toLowerCase();
   if (!USERNAME.test(username)) throw new UserError("Usernames use 2 to 32 lowercase letters, numbers, dots, dashes or underscores.");
@@ -62,6 +69,7 @@ function clean(u: Record<string, unknown>) {
     active: u.active !== false,
     csrc_user_id: link(u.csrc_user_id),
     task_user_id: link(u.task_user_id),
+    coverage_user: covUser(u.coverage_user),
     dpr_role, dpr_agent_name,
     dpr_can_export: dpr_role ? u.dpr_can_export === true : false,
   };
@@ -73,26 +81,28 @@ function dbError(e: { code?: string; message?: string; details?: string }) {
     if (m.includes("username")) return new UserError("That username is already taken.");
     if (m.includes("csrc_user_id")) return new UserError("That CSRC account is already linked to another person.");
     if (m.includes("task_user_id")) return new UserError("That Tasks account is already linked to another person.");
+    if (m.includes("coverage_user")) return new UserError("That Coverage account is already linked to another person.");
   }
   if (e.code === "23503") return new UserError("That linked account no longer exists. Reload and try again.");
   return new Error(m);
 }
 
 async function list() {
-  const [users, csrc, tasks, agents, signins] = await Promise.all([
+  const [users, csrc, tasks, agents, signins, cov] = await Promise.all([
     admin.from("portal_users").select("*").order("full_name"),
     admin.from("csrc_app_users").select("id, username, full_name, role, active").order("full_name"),
     admin.from("task_list_profiles").select("id, username, full_name, role, active").order("full_name"),
     admin.from("dpr_customers").select("agent_name"),
     admin.from("portal_activity").select("user_id, at").eq("event", "sign_in").order("at", { ascending: false }).limit(2000),
+    admin.from("cov_users").select("username, full_name, active").order("username"), // never selects password_hash
   ]);
-  for (const r of [users, csrc, tasks, agents, signins]) if (r.error) throw new Error(r.error.message);
+  for (const r of [users, csrc, tasks, agents, signins, cov]) if (r.error) throw new Error(r.error.message);
   const last: Record<string, string> = {};
   for (const s of signins.data!) if (s.user_id && !last[s.user_id]) last[s.user_id] = s.at;
   const agentNames = [...new Set(agents.data!.map((a) => (a.agent_name || "").trim()).filter(Boolean))].sort();
   return {
     users: users.data!.map((u) => ({ ...u, last_sign_in: last[u.id] ?? null })),
-    csrc_accounts: csrc.data, task_accounts: tasks.data, dpr_agents: agentNames,
+    csrc_accounts: csrc.data, task_accounts: tasks.data, coverage_accounts: cov.data, dpr_agents: agentNames,
   };
 }
 

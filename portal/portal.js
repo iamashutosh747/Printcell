@@ -9,9 +9,10 @@
     { key: "csrc", name: "CSRC", what: "Service schedule and visit reports", ink: "var(--p-cyan)" },
     { key: "tasks", name: "Tasks", what: "Daily task list and reviews", ink: "var(--p-magenta)" },
     { key: "dpr", name: "DPR", what: "Customer dues and cheque tracking", ink: "var(--p-yellow)" },
+    { key: "coverage", name: "Coverage", what: "Toner used and clicks by machine", ink: "var(--p-key)" },
   ];
   const DPR_LABEL = { full: "Full report", pdc: "PDC cheques only", agent: "Agent" };
-  const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR" };
+  const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR", open_coverage: "Opened Coverage" };
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -117,6 +118,7 @@
   function roleText(key) {
     const a = me[key];
     if (key === "dpr") return a.role === "agent" ? "Agent: " + a.agent_name : DPR_LABEL[a.role];
+    if (key === "coverage") return "Dashboard";
     return cap(a.role);
   }
   function renderHome() {
@@ -140,13 +142,31 @@
     const label = b.textContent;
     b.disabled = true; b.textContent = "Opening…";
     try {
-      const { url } = await callFn("portal-launch", { app: b.dataset.app });
-      location.assign(url);
+      const { url, post } = await callFn("portal-launch", { app: b.dataset.app });
+      if (post) {
+        // The coverage site has its own sign-in: hand it this person's token in a form post.
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) throw new Error("Your session has ended. Sign in again.");
+        postForm(post, { access_token: session.access_token });
+      } else {
+        location.assign(url);
+      }
     } catch (ex) {
       err.textContent = ex.message; err.classList.remove("hidden");
       b.disabled = false; b.textContent = label;
     }
   });
+  function postForm(action, fields) {
+    const f = document.createElement("form");
+    f.method = "post"; f.action = action;
+    for (const [k, v] of Object.entries(fields)) {
+      const i = document.createElement("input");
+      i.type = "hidden"; i.name = k; i.value = v;
+      f.appendChild(i);
+    }
+    document.body.appendChild(f);
+    f.submit();
+  }
   // Coming back with the browser's Back button restores the page from cache: reset the buttons.
   window.addEventListener("pageshow", (e) => { if (e.persisted && me && !$("home-view").classList.contains("hidden")) renderHome(); });
 
@@ -177,6 +197,10 @@
     const a = (list || []).find((x) => x.id === id);
     return a ? a.username + " · " + cap(a.role) + (a.active ? "" : " (inactive)") : null;
   }
+  function covLabel(username) {
+    const a = ((roster && roster.coverage_accounts) || []).find((x) => x.username === username);
+    return username + (a && !a.active ? " (inactive)" : "");
+  }
   function accessLine(ink, name, text) {
     return '<div class="access' + (text ? "" : " none") + '"><span class="sw" style="--c:' + ink + '"></span>' +
       name + (text ? ": " + esc(text) : ": no access") + "</div>";
@@ -194,6 +218,7 @@
           '<span class="sub">' + esc(u.username) + "</span></td><td>" +
           accessLine("var(--p-cyan)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
           accessLine("var(--p-magenta)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) +
+          accessLine("var(--p-key)", "Coverage", u.coverage_user ? covLabel(u.coverage_user) : null) +
           accessLine("var(--p-yellow)", "DPR", dpr) + "</td>" +
           '<td class="num">' + (u.last_sign_in ? when(u.last_sign_in) : '<span class="none">Never</span>') + "</td>" +
           "<td>" + state + "</td>" +
@@ -209,6 +234,16 @@
         (a.active ? "" : " – inactive") + (other ? " – linked to someone else" : "") + "</option>";
     }).join("");
     sel.value = currentId || "";
+  }
+  function fillCoverage(current) {
+    const taken = new Set(roster.users.filter((u) => u.id !== editing && u.coverage_user).map((u) => u.coverage_user));
+    $("e-coverage").innerHTML = '<option value="">No access</option>' + (roster.coverage_accounts || []).map((a) => {
+      const other = taken.has(a.username);
+      return '<option value="' + esc(a.username) + '"' + (other ? " disabled" : "") + ">" +
+        esc((a.full_name || a.username) + " (" + a.username + ")") + (a.active ? "" : " – inactive") +
+        (other ? " – linked to someone else" : "") + "</option>";
+    }).join("");
+    $("e-coverage").value = current || "";
   }
   function syncDprFields() {
     const r = $("e-dpr").value;
@@ -230,6 +265,7 @@
     $("e-active").disabled = $("e-admin").disabled = !!isSelf;
     fillSelect($("e-csrc"), roster.csrc_accounts, "csrc_user_id", u && u.csrc_user_id);
     fillSelect($("e-tasks"), roster.task_accounts, "task_user_id", u && u.task_user_id);
+    fillCoverage(u && u.coverage_user);
     $("e-dpr").value = (u && u.dpr_role) || "";
     $("e-agent").innerHTML = '<option value="">Pick an agent</option>' +
       roster.dpr_agents.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
@@ -260,6 +296,7 @@
       full_name: $("e-name").value, username: $("e-user").value.trim().toLowerCase(),
       password: pass || undefined, active: $("e-active").checked, is_admin: $("e-admin").checked,
       csrc_user_id: $("e-csrc").value || null, task_user_id: $("e-tasks").value || null,
+      coverage_user: $("e-coverage").value || null,
       dpr_role: $("e-dpr").value || null, dpr_agent_name: $("e-agent").value || null, dpr_can_export: $("e-export").checked,
     };
     $("e-save").disabled = true; msg.textContent = "";
