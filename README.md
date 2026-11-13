@@ -25,6 +25,8 @@ Both web apps are plain static files: no build step, no dependencies. Deploy a f
 
 **Portal and DPR:** deploy the `portal/` and `dpr/` folders as separate Vercel projects (Other / no framework, no build command, output = the folder). Each has a `vercel.json` with security headers.
 
+The portal (`printcell-portal`) deploys from this repo's GitHub source. **Always set Root Directory to `portal`** (in the Vercel project settings, or `projectSettings.rootDirectory` in an API deploy). Without it Vercel serves the repo root and the site returns 404.
+
 **Edge functions:** deploy `supabase/functions/portal-admin` and `portal-launch` with `verify_jwt` off. They do their own sign-in checks. They read `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, which Supabase provides to every function automatically.
 
 ```bash
