@@ -128,7 +128,7 @@
       const right = { halign: "right" };
       const R_ = (t) => ({ content: t, styles: right });
       const sty = { fontSize: 9.5, cellPadding: 5, textColor: INK, lineColor: LINE, lineWidth: 0.5 };
-      const head = { fillColor: [30, 32, 36], textColor: [253, 252, 249], fontStyle: "bold" };
+      const head = { fillColor: [30, 122, 176], textColor: [255, 255, 255], fontStyle: "bold" };
       const foot = { fillColor: [241, 238, 231], textColor: INK, fontStyle: "bold" };
 
       // Summary: label / value pairs, two per row

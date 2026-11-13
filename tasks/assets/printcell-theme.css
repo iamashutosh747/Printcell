@@ -1,0 +1,19 @@
+:root{--maroon:#1e7ab0;--maroon-deep:#186a99;--maroon-ink:#ffffff;--maroon-ink-2:#697079;--maroon-line:#e6e7e3;--paper:#f6f7f5;--sheet:#ffffff;--line:#e6e7e3;--line-soft:#eeefec;--ink:#2a2e35;--ink-2:#5a5f68;--ink-3:#697079;--vermilion:#b5434f;--vermilion-wash:#fbecee;--saffron:#eec646;--saffron-ink:#8a6608;--saffron-wash:#fcf4dd;--leaf:#2e7a56;--leaf-wash:#e7f4ee;--today:#e7f2f9;--shadow:0 1px 2px rgba(42,46,53,.05), 0 6px 18px -8px rgba(42,46,53,.10)}
+.input:focus,.select:focus,.textarea:focus{box-shadow:0 0 0 3px rgba(30,122,176,.16)}
+.select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23697079' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E")}
+.patro-wd .sat,.patro-wd .sat .np{color:#b5434f}
+/* Print Cell shared light palette: the rail, login band and calendar header become light surfaces */
+.rail{background:#ffffff;color:#2a2e35;border-right:1px solid #e6e7e3}
+.rail-today .big,.rail-foot .who{color:#2a2e35}
+.nav-link{color:#5a5f68}
+.nav-link:hover{background:#f2f3f0;color:#2a2e35}
+.nav-link[aria-current=page]{background:#e7f2f9;color:#186a99}
+.rail-foot button{border-color:#cfd1cc;color:#5a5f68}
+.rail-foot button:hover{color:#2a2e35;border-color:#697079;background:#f2f3f0}
+.login-band{background:#ffffff;color:#2a2e35;border-right:1px solid #e6e7e3}
+.login-band .big{color:#1e7ab0}
+.patro-wd{background:#f2f3f0;color:#2a2e35;border-bottom:1px solid #e6e7e3}
+.show-more{color:#186a99}
+@media (width<=860px){.rail{border-right:0;border-bottom:1px solid #e6e7e3}}
+@media (width<=760px){.login-band{border-right:0;border-bottom:1px solid #e6e7e3}}
+

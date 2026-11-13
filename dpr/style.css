@@ -1,24 +1,14 @@
-  /* Palette: process print. Uncoated paper, key (K) ink for text and controls,
-     softened C/M/Y inks for status. Status tints are mixed from the solid ink. */
+  /* Print Cell, light: the same palette as printcell.ashutosh-sharma.com (portal, CSRC, Tasks, Coverage).
+     Near-white paper, soft graphite ink, a cyan-blue for actions; status inks keep their DPR meaning. */
   :root {
     color-scheme: light;
-    --bg: #f4f2ed; --surface: #fdfcf9; --ink: #1e2024; --muted: #5f6268; --line: #e2dfd7;
-    --soft: #f1eee7; --accent: #1e2024; --on-accent: #fdfcf9; --focus: #2b93bd;
-    --neg: #a8323d; --warn: #876406;
-    --p-cyan: #3aa3cb; --p-magenta: #c4467c; --p-yellow: #e4bd35; --p-key: #1e2024;
-    --s-black: #26282d; --s-gray: #8e9197; --s-blue: #2e7db0; --s-red: #c4434f;
-    --s-yellow: #ddb12a; --s-green: #3a9470;
-    --on-black: #f4f2ed; --sw-ring: rgb(30 32 36 / .12);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { color-scheme: dark;
-            --bg: #131417; --surface: #1a1b1f; --ink: #e8e6e0; --muted: #9d9fa5; --line: #2c2e33;
-            --soft: #212226; --accent: #e8e6e0; --on-accent: #1a1b1f; --focus: #5eb7db;
-            --neg: #ee8a93; --warn: #e6c24f;
-            --p-cyan: #5eb7db; --p-magenta: #d9719d; --p-yellow: #e6c24f; --p-key: #e8e6e0;
-            --s-black: #050506; --s-gray: #8f939a; --s-blue: #5ea1d2; --s-red: #de6b77;
-            --s-yellow: #e6c24f; --s-green: #5bb68f;
-            --on-black: #e8e6e0; --sw-ring: rgb(232 230 224 / .38); }
+    --bg: #f6f7f5; --surface: #ffffff; --ink: #2a2e35; --muted: #697079; --line: #e6e7e3;
+    --soft: #f2f3f0; --accent: #1e7ab0; --on-accent: #ffffff; --focus: #2a93c9;
+    --neg: #b5434f; --warn: #8a6608;
+    --p-cyan: #3fa9d8; --p-magenta: #d95b9b; --p-yellow: #eec646; --p-key: #7b808a;
+    --s-black: #3f434b; --s-gray: #a5a9b0; --s-blue: #3d8dc6; --s-red: #d65d69;
+    --s-yellow: #e8be3e; --s-green: #4ca680;
+    --on-black: #ffffff; --sw-ring: rgb(42 46 53 / .10);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -57,7 +47,7 @@
   .row { display: flex; gap: 8px; }
   .btn { padding: 9px 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--on-accent);
          cursor: pointer; font-weight: 500; }
-  .btn:hover { background: color-mix(in oklab, var(--accent) 86%, var(--surface)); }
+  .btn:hover { background: #186a99; }
   .btn:disabled { opacity: .5; cursor: default; }
   .error { color: var(--neg); font-size: 13px; margin-top: 10px; min-height: 1em; }
 

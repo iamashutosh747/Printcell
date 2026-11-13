@@ -147,7 +147,7 @@
         startY: 92, head: [head], body: body, foot: foot, showFoot: "lastPage",
         theme: "grid", margin: { left: 40, right: 40 },
         styles: { fontSize: 9, cellPadding: 4, textColor: [30, 32, 36], lineColor: [226, 223, 215] },
-        headStyles: { fillColor: [30, 32, 36], textColor: [253, 252, 249] },
+        headStyles: { fillColor: [30, 122, 176], textColor: [255, 255, 255] },
         footStyles: { fillColor: [241, 238, 231], textColor: [30, 32, 36], fontStyle: "bold" },
         columnStyles: cs,
         didDrawPage: (h) => {

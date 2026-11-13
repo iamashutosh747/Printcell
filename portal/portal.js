@@ -68,6 +68,7 @@
     $("who").classList.toggle("hidden", !signedIn);
     $("top-actions").classList.toggle("hidden", !signedIn);
     if (view === "settings") $("settings-link").setAttribute("aria-current", "page"); else $("settings-link").removeAttribute("aria-current");
+    document.body.classList.toggle("fit", view === "home");
     window.scrollTo(0, 0);
   }
 
@@ -136,6 +137,9 @@
 
   // ---------- home: cards ----------
   const myApps = () => APPS.filter((a) => me && me[a.key]);
+  // On a computer screen the home page fits one window: each list shows as many rows as fit.
+  const FIT = window.matchMedia("(min-width: 980px) and (min-height: 560px)");
+  const LIST_CAP = 30;   // rows rendered per list before fitting; the rest only count towards "more"
 
   function cardShell(app, inner) {
     return '<section class="card" id="card-' + app.key + '" style="--c:' + app.ink + '" aria-labelledby="h-' + app.key + '">' +
@@ -143,12 +147,15 @@
       '<button type="button" class="open" data-open="' + app.key + '">Open<span class="sr-only"> ' + app.name + "</span>" + ICON_OPEN + "</button></div>" +
       inner + '<p class="card-err" role="alert"></p></section>';
   }
+  function setCards(html, n) {
+    $("cards").dataset.n = String(n);
+    $("cards").innerHTML = html;
+  }
   function renderSkeletons() {
     const apps = myApps();
-    $("cards").innerHTML = apps.length
+    setCards(apps.length
       ? apps.map((a) => cardShell(a, '<span class="sk big"></span><div class="card-body"><span class="sk w80"></span><span class="sk w60"></span><span class="sk w40"></span></div>')).join("")
-      : '<section class="card"><p class="card-sum">Nothing here yet<small>You don\'t have access to any apps yet. Ask an admin to add you.</small></p></section>';
-    layoutCards();
+      : '<section class="card"><p class="card-sum">Nothing here yet<small>You don\'t have access to any apps yet. Ask an admin to add you.</small></p></section>', Math.max(1, apps.length));
   }
   async function loadHome() {
     $("home-msg").innerHTML = "";
@@ -170,28 +177,45 @@
       if (!d) continue;
       parts.push(cardShell(app, ({ tasks: tasksCard, csrc: csrcCard, dpr: dprCard, coverage: coverageCard })[app.key](d)));
     }
-    $("cards").innerHTML = parts.join("");
-    layoutCards();
+    setCards(parts.join(""), parts.length);
     wireDonut();
+    fitLists();
   }
-  // Wide screens: deal the cards, in order, into whichever of two columns is shorter.
-  const WIDE = window.matchMedia("(min-width: 980px)");
-  function layoutCards() {
-    const box = $("cards");
-    const cards = [...box.querySelectorAll(".card")];
-    box.classList.remove("masonry");
-    box.replaceChildren(...cards);
-    if (cards.length < 3 || !WIDE.matches) return;
-    const cols = [document.createElement("div"), document.createElement("div")];
-    cols.forEach((c) => (c.className = "col"));
-    box.classList.add("masonry");
-    box.replaceChildren(...cols);
-    for (const card of cards) (cols[0].offsetHeight <= cols[1].offsetHeight ? cols[0] : cols[1]).appendChild(card);
-  }
-  WIDE.addEventListener("change", layoutCards);
 
-  // Tasks: late + due today, tick to send for approval.
-  const TASK_LIMIT = 8;
+  // A "more" link counts rows that are not shown: ones never rendered (data-base) plus ones hidden to fit.
+  const moreBtn = (app, base) => '<button type="button" class="more more-fit" data-open="' + app + '" data-base="' + base + '" hidden></button>';
+  const MORE_TEXT = {
+    tasks: (n) => plural(n, "more task", "more tasks") + " in Tasks",
+    csrc: (n) => plural(n, "more call", "more calls") + " in CSRC",
+    coverage: (n) => plural(n, "more customer", "more customers") + " in Coverage",
+  };
+  function fitLists() {
+    for (const card of $("cards").querySelectorAll(".card")) {
+      const body = card.querySelector(".card-body"), more = card.querySelector(".more-fit");
+      const items = body ? [...body.querySelectorAll(".fit")] : [];
+      if (!items.length) continue;
+      items.forEach((i) => (i.hidden = false));
+      let hidden = 0;
+      const update = () => {
+        if (more) {
+          const n = Number(more.dataset.base) + hidden;
+          more.hidden = n === 0;
+          more.textContent = n ? MORE_TEXT[card.id.replace("card-", "")](n) : "";
+        }
+        body.querySelectorAll(".fit-group").forEach((g) => (g.hidden = !g.querySelector(".fit:not([hidden])")));
+      };
+      update();
+      if (!FIT.matches) continue;
+      // Hide rows from the end (late tasks go before today's) until the list fits its card.
+      for (let i = items.length - 1; i >= 1 && body.scrollHeight > body.clientHeight + 1; i--) {
+        items[i].hidden = true; hidden++; update();
+      }
+    }
+  }
+  let fitTimer = 0;
+  window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitLists, 120); });
+
+  // Tasks: today first, then late; tick to send for approval.
   function tasksCard(t) {
     const day = home.today;
     const { late, due, waiting } = TS.today(t.tasks, t.completions, day);
@@ -204,22 +228,20 @@
       const meta = ret ? "Sent back" + (o.completion.admin_note ? ": " + o.completion.admin_note : "")
         : isLate ? "Was due " + TS.fmtBS(o.due, false) + ", " + plural(TS.diffDays(day, o.due), "day", "days") + " ago"
         : o.due > day ? "Due by " + TS.fmtBS(o.due, false) : "";
-      return '<li class="tick' + (isLate || ret ? " is-late" : "") + '" data-meta="' + esc(meta) + '"><label>' +
+      return '<li class="tick fit' + (isLate || ret ? " is-late" : "") + '" data-meta="' + esc(meta) + '"><label>' +
         '<input type="checkbox" data-task="' + esc(o.task.id) + '" data-due="' + o.due + '">' +
-        '<span class="t-name">' + esc(o.task.name) + "</span>" +
+        '<span class="t-name" title="' + esc(o.task.name) + '">' + esc(o.task.name) + "</span>" +
         '<span class="t-meta">' + esc(meta) + "</span>" +
         '</label><p class="t-err" role="alert"></p></li>';
     };
-    // Today's tasks always show; late ones fill the rest (most recent first), the remainder link to Tasks.
-    const shownDue = due.slice(0, TASK_LIMIT);
-    const shownLate = late.slice().sort((a, b) => (a.due < b.due ? 1 : -1)).slice(0, Math.max(3, TASK_LIMIT - shownDue.length));
-    const hidden = open - shownLate.length - shownDue.length;
+    const shownDue = due.slice(0, LIST_CAP);
+    const shownLate = late.slice().sort((a, b) => (a.due < b.due ? 1 : -1)).slice(0, Math.max(0, LIST_CAP - shownDue.length));
     let body = "";
     if (open === 0) body = '<p class="empty-note">Open Tasks to see what is coming up this week.</p>';
     else {
-      if (shownDue.length) body += '<p class="group-label">Today</p><ul class="ticks">' + shownDue.map((o) => row(o, false)).join("") + "</ul>";
-      if (shownLate.length) body += '<p class="group-label late">Late</p><ul class="ticks">' + shownLate.map((o) => row(o, true)).join("") + "</ul>";
-      if (hidden > 0) body += '<button type="button" class="more" data-open="tasks">' + plural(hidden, "more late task", "more late tasks") + " in Tasks</button>";
+      if (shownDue.length) body += '<div class="fit-group"><p class="group-label">Today</p><ul class="ticks">' + shownDue.map((o) => row(o, false)).join("") + "</ul></div>";
+      if (shownLate.length) body += '<div class="fit-group"><p class="group-label late">Late</p><ul class="ticks">' + shownLate.map((o) => row(o, true)).join("") + "</ul></div>";
+      body += moreBtn("tasks", open - shownDue.length - shownLate.length);
     }
     const foot = '<span id="t-waiting"><strong>' + waiting.length + "</strong> waiting for approval</span>" +
       (t.is_admin && t.to_review != null ? "<span><strong>" + t.to_review + "</strong> for you to review</span>" : "");
@@ -229,7 +251,7 @@
   function refreshTaskSummary() {
     const card = $("card-tasks");
     if (!card) return;
-    // Count against the full totals, not just the rows shown (some late ones may be hidden behind "more").
+    // Count against the full totals, not just the rows shown (some may be hidden behind "more").
     const sumEl = $("t-sum"), base = Number(sumEl.dataset.waiting) || 0;
     const ticked = card.querySelectorAll('.ticks input[type="checkbox"]:checked').length;
     const tickedLate = card.querySelectorAll('.tick.is-late input[type="checkbox"]:checked').length;
@@ -256,7 +278,7 @@
     }
   }
 
-  // CSRC: today's calls.
+  // CSRC: today's calls; open and due-visit counts in the footer.
   function csrcCard(c) {
     const calls = c.calls || [];
     const done = calls.filter((x) => x.status === "completed").length;
@@ -264,23 +286,23 @@
     const sub = calls.length ? (done ? done + " done, " + (calls.length - done) + " to go" : "None done yet")
       : c.role === "manager" ? "Calls booked for today will show here." : "Your calls for today will show here.";
     const hhmm = (t) => (t ? String(t).slice(0, 5) : "–");
-    let body = calls.length
-      ? '<ul class="calls">' + calls.slice(0, 6).map((x) =>
-          '<li class="call' + (x.status === "completed" ? " is-done" : "") + '">' +
-          '<span class="c-time">' + hhmm(x.from) + '</span><span class="c-cust">' + esc(x.customer) + "</span>" +
+    const shown = calls.slice(0, LIST_CAP);
+    const list = shown.length
+      ? '<ul class="calls">' + shown.map((x) =>
+          '<li class="call fit' + (x.status === "completed" ? " is-done" : "") + '">' +
+          '<span class="c-time">' + hhmm(x.from) + '</span><span class="c-cust" title="' + esc(x.customer) + '">' + esc(x.customer) + "</span>" +
           '<span class="c-tag">' + (x.status === "completed" ? "Done" : x.type === "SCH" ? "Scheduled" : "On call") + "</span>" +
-          '<span class="c-eng">' + esc(x.engineers || "No engineer assigned") + "</span></li>").join("") + "</ul>" +
-        (calls.length > 6 ? '<button type="button" class="more" data-open="csrc">' + plural(calls.length - 6, "more call", "more calls") + " in CSRC</button>" : "")
+          '<span class="c-eng">' + esc(x.engineers || "No engineer assigned") + "</span></li>").join("") + "</ul>" + moreBtn("csrc", calls.length - shown.length)
       : "";
     const figs = [];
     if (c.overdue_calls) figs.push('<p class="figure"><strong>' + c.overdue_calls + "</strong> earlier " + (c.overdue_calls === 1 ? "call is" : "calls are") + " still open</p>");
     if (c.visits_due != null) figs.push('<p class="figure"><strong>' + c.visits_due + "</strong> " + (c.visits_due === 1 ? "customer is" : "customers are") + " due a scheduled visit</p>");
-    const figBlock = figs.length ? '<div class="' + (body ? "card-foot figures" : "figures") + '">' + figs.join("") + "</div>" : "";
     return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +
-      (body || figBlock ? '<div class="card-body">' + body + figBlock + "</div>" : "");
+      '<div class="card-body">' + (list || figs.join("")) + "</div>" +
+      (list && figs.length ? '<div class="card-foot" style="display:block">' + figs.join("") + "</div>" : "");
   }
 
-  // DPR: customers by status as a donut, plus cheques due.
+  // DPR: customers by status as a donut, cheques due in the footer.
   function donut(rows) {
     const live = rows.filter((x) => x.n), total = live.reduce((s, r) => s + r.n, 0);
     const R = 64, r = 46, c = 66, gap = live.length > 1 ? 2 / ((R + r) / 2) : 0;   // 2px gap between slices
@@ -297,7 +319,7 @@
         d = "M " + pt(R, a0) + " A " + R + " " + R + " 0 " + large + " 1 " + pt(R, a1) +
             " L " + pt(r, a1) + " A " + r + " " + r + " 0 " + large + " 0 " + pt(r, a0) + " Z";
       }
-      paths += '<path d="' + d + '" fill="' + row.ink + '" fill-rule="evenodd" class="seg-' + row.status.toLowerCase() + '" data-status="' + row.status + '">' +
+      paths += '<path d="' + d + '" fill="' + row.ink + '" fill-rule="evenodd" data-status="' + row.status + '">' +
         "<title>" + row.status + ": " + plural(row.n, "customer", "customers") + ", Rs " + money(row.due) + "</title></path>";
       a += sweep;
     }
@@ -308,11 +330,10 @@
   function dprCard(d) {
     const asOf = d.report_date ? "as of " + TS.fmtAD(d.report_date, false) : "";
     const ch = d.cheques;
-    const chequeLine = (style) => ch ? '<p class="cheques"' + (style || "") + '><span class="' + (ch.overdue ? "is-late" : "") + '"><strong>' + ch.overdue + "</strong> " + (ch.overdue === 1 ? "cheque" : "cheques") + " overdue</span>" +
-      "<span><strong>" + ch.today + "</strong> due today</span><span><strong>" + ch.tomorrow + "</strong> tomorrow</span></p>" : "";
+    const chequeFoot = ch ? '<div class="card-foot"><span class="' + (ch.overdue ? "is-late" : "") + '"><strong>' + ch.overdue + "</strong> " + (ch.overdue === 1 ? "cheque" : "cheques") + " overdue</span>" +
+      "<span><strong>" + ch.today + "</strong> due today</span><span><strong>" + ch.tomorrow + "</strong> tomorrow</span></div>" : "";
     if (!d.statuses) {   // PDC-only access: cheques are the whole story
-      return '<p class="card-sum">' + plural(ch.overdue + ch.today, "cheque", "cheques") + " to send<small>Cheques " + asOf + "</small></p>" +
-        '<div class="card-body">' + chequeLine(' style="border-top:0;padding-top:0;margin-top:0"') + "</div>";
+      return '<p class="card-sum">' + plural(ch.overdue + ch.today, "cheque", "cheques") + " to send<small>Cheques " + asOf + "</small></p>" + chequeFoot;
     }
     const by = new Map(d.statuses.map((s) => [s.status, s]));
     const rows = STATUSES.map(([status, ink]) => ({ status, ink, n: (by.get(status) || {}).n || 0, due: (by.get(status) || {}).due || 0 }));
@@ -324,7 +345,7 @@
       '<li data-status="' + x.status + '" style="--c:' + x.ink + '"><span class="l-sw"></span><span>' + x.status + "</span>" +
       '<span class="l-n">' + x.n + '</span><span class="l-due">' + (x.n ? "Rs " + money(x.due) : "–") + "</span></li>").join("") + "</ul>";
     return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +
-      '<div class="card-body"><div class="dpr-body">' + (total ? donut(rows) : "") + legend + "</div>" + chequeLine() + "</div>";
+      '<div class="card-body"><div class="dpr-body">' + (total ? donut(rows) : "") + legend + "</div></div>" + chequeFoot;
   }
   function wireDonut() {
     const card = $("card-dpr");
@@ -352,13 +373,13 @@
     const cut = c.cutoff ? "toner issued up to " + TS.fmtAD(c.cutoff, false) : "";
     const sum = red.length ? plural(red.length, "customer", "customers") + " over-supplied" : "No customer over-supplied";
     const sub = red.length ? "Sent more toner than their machines have used" : "Toner issued matches usage" + (cut ? ", " + cut : "") + ".";
-    const body = red.length ? '<ul class="over">' + red.slice(0, 5).map((g) =>
-      '<li><span class="o-name">' + esc(g.name) + '</span><span class="o-parts">' +
+    const shown = red.slice(0, LIST_CAP);
+    const body = shown.length ? '<ul class="over">' + shown.map((g) =>
+      '<li class="fit"><span class="o-name" title="' + esc(g.name) + '">' + esc(g.name) + '</span><span class="o-parts">' +
       g.red.sort((a, b) => b.excess - a.excess).map((r) =>
         '<span class="chip" title="' + esc(r.part + ": " + r.issued + " issued, " + Number(r.expected).toFixed(1) + " used, " + Number(r.excess).toFixed(1) + " over the 1-toner allowance") + '">' +
         esc(r.part) + " <b>+" + Number(r.excess).toFixed(1) + "</b></span>").join("") +
-      "</span></li>").join("") + "</ul>" +
-      (red.length > 5 ? '<button type="button" class="more" data-open="coverage">' + plural(red.length - 5, "more customer", "more customers") + " in Coverage</button>" : "") : "";
+      "</span></li>").join("") + "</ul>" + moreBtn("coverage", red.length - shown.length) : "";
     const foot = (watch ? "<span><strong>" + watch + "</strong> more to watch</span>" : "") +
       "<span>FY " + esc(String(c.fy).replace("-", "/")) + (red.length && cut ? ", " + cut : "") + "</span>";
     return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +

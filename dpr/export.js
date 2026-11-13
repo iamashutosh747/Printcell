@@ -5,7 +5,7 @@
     if (!tools) return;
     // Same inks as the screen: pale tint fill + tint-matched text; Black stays solid key.
     const PDF_COLORS = {
-      Black: { fill: [38, 40, 45], text: [253, 252, 249] },
+      Black: { fill: [63, 67, 75], text: [255, 255, 255] },
       Gray: { fill: [240, 240, 241], text: [88, 91, 96] },
       Blue: { fill: [220, 234, 242], text: [38, 80, 109] },
       Red: { fill: [246, 225, 227], text: [117, 50, 58] },
@@ -107,7 +107,7 @@
           startY: 82, head: head, body: body, foot: foot, showFoot: "lastPage", theme: "grid",
           margin: { left: L, right: L, bottom: 34 },
           styles: { fontSize: 9.5, cellPadding: 5, textColor: INK, lineColor: [226, 223, 215], lineWidth: 0.5, overflow: "linebreak" },
-          headStyles: { fillColor: [30, 32, 36], textColor: [253, 252, 249], fontStyle: "bold" },
+          headStyles: { fillColor: [30, 122, 176], textColor: [255, 255, 255], fontStyle: "bold" },
           footStyles: { fillColor: [241, 238, 231], textColor: INK, fontStyle: "bold" },
           columnStyles: { 1: { cellWidth: 160 }, 2: { cellWidth: 70, halign: "center", fontStyle: "bold" } },
           didParseCell: (h) => {
