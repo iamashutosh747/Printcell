@@ -6,11 +6,12 @@ Backup of the Print Cell web apps and the database changes behind them. Everythi
 |---|---|---|---|
 | `portal/` | Master login. One sign-in, then open the apps a person may use. Admin pages for people, access and activity. | printcell.ashutosh-sharma.com | `printcell-portal` |
 | `dpr/` | Customer dues report (DPR): customers, PDC cheques, sent cheques, PDF/Excel exports. | dpr.ashutosh-sharma.com | `dpr-report` |
-| `tasks/` | Compiled Tasks app (no source here). Copied from the live site; `assets/printcell-theme.css` recolours it to the shared light palette. | tasks.ashutosh-sharma.com | `task-list` |
+| `tasks/` | Tasks: recurring office tasks, makers mark done, an admin approves. Plain static files on the `task_list_*` tables. | tasks.ashutosh-sharma.com | `task-list` |
+| `tasks-legacy/` | The previous compiled Tasks build, kept only to switch back to if needed (deploy with Root Directory `tasks-legacy`). | | |
 | `supabase/functions/` | The two server functions behind the portal. | Supabase Edge Functions | |
 | `supabase/migrations/` | SQL for the DPR table renames, the portal tables and the signed-out lockdown. | Supabase database | |
 
-Both web apps are plain static files: no build step, no dependencies. Deploy a folder as it is.
+The portal, DPR and Tasks are plain static files: no build step, no dependencies. Deploy a folder as it is.
 
 ## How sign-in works
 
@@ -48,6 +49,6 @@ None are stored in this repo. The Supabase publishable key that appears in the w
 ## Not included
 
 - **CSRC** source (csrc.ashutosh-sharma.com) lives in its own repo, `csrc`.
-- **Tasks** source. Only the compiled build is here (`tasks/`). Colour changes go in `tasks/assets/printcell-theme.css`, never in the hashed bundle files. If the source turns up, move the palette into its `:root` tokens.
+- Tasks was rebuilt from scratch in November 2026 (`tasks/`); the old app's source was never available. People are managed through the `task-list-manage-users` Edge Function (logins are `username@staff.tasks.local`).
 - **Coverage** source lives in its own repo, `toner-pilferage` (dashboard in `dashboard/`). The portal needs its `/sso` route.
 - The **accounting-sync** project that feeds DPR.
