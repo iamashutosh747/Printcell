@@ -4,162 +4,195 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>DPR – Customer Dues</title>
+<meta name="theme-color" content="#ffffff">
+<title>DPR · Customer dues</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <h1>Customer Dues Report</h1>
-    <nav class="tabs hidden" id="tabs" aria-label="Views">
-      <button type="button" class="tab" data-view="customers" aria-pressed="true">Customer details</button>
-      <button type="button" class="tab" data-view="pdc" aria-pressed="false">PDC details</button>
-      <button type="button" class="tab" data-view="sent" aria-pressed="false">Sent cheques</button>
-    </nav>
-    <span class="asof" id="asof"></span>
-    <span class="spacer"></span>
-    <a href="https://printcell.ashutosh-sharma.com/" id="portal-link" class="hidden">All portals</a>
-    <a href="#" id="signout" class="hidden">Sign out</a>
-  </header>
-
   <!-- Access code -->
-  <form id="login" class="login" autocomplete="off">
-    <h2>Open the report</h2>
-    <p class="muted">Enter your access code to see customer dues.</p>
-    <label for="code">Access code</label>
-    <div class="row">
-      <input id="code" type="password" autocomplete="current-password" required>
-      <button id="open" class="btn" type="submit">Open</button>
-    </div>
-    <div class="error" id="login-error"></div>
-  </form>
-
-  <!-- Status bar -->
-  <nav class="statusbar hidden" id="statusbar" aria-label="Filter by status"></nav>
-
-  <!-- Workspace -->
-  <main class="work hidden" id="work">
-    <section class="pane-list" aria-label="Customers">
-      <div class="tools">
-        <div>
-          <label for="search">Search customer</label>
-          <div class="pair">
-            <input id="search" type="search" placeholder="Name or GL code" autocomplete="off">
-            <select id="sort" class="sort" aria-label="Sort customers">
-              <option value="name">A–Z</option>
-              <option value="due">Highest dues</option>
-              <option value="risk">By status</option>
-            </select>
-          </div>
-        </div>
-        <select id="customer" class="cselect" aria-label="Customer">
-          <option value="">— Select a customer —</option>
-        </select>
+  <main class="signin hidden" id="login-view">
+    <form id="login" class="sheet signin-sheet" autocomplete="off">
+      <div class="signin-ink" aria-hidden="true"></div>
+      <div class="signin-body">
+        <h1>Customer dues</h1>
+        <p class="lede">Enter your access code to open the report, or sign in through the <a href="https://printcell.ashutosh-sharma.com/">Print Cell portal</a>.</p>
+        <label for="code">Access code</label>
+        <input id="code" type="password" autocomplete="current-password" required>
+        <button id="open" class="btn wide" type="submit">Open the report</button>
+        <p class="msg error" id="login-error" role="alert"></p>
       </div>
-      <ul class="clist" id="clist"></ul>
-    </section>
+    </form>
+  </main>
+  <p class="boot" id="boot">Loading…</p>
 
-    <section class="pane-detail" id="detail-pane" aria-live="polite">
-      <div class="placeholder" id="placeholder">Pick a customer to see their status, bills and cheques.</div>
+  <div class="shell hidden" id="shell">
+    <aside class="rail" aria-label="DPR">
+      <div class="who"><strong>Customer dues</strong><span id="asof"></span></div>
+      <nav class="views" id="views" aria-label="Views">
+        <button type="button" class="view-btn" data-view="customers"><span>Customers</span><small id="n-customers"></small></button>
+        <button type="button" class="view-btn" data-view="pdc"><span>Cheques to send</span><small id="n-pdc"></small></button>
+        <button type="button" class="view-btn" data-view="sent"><span>Sent cheques</span><small></small></button>
+      </nav>
+      <nav class="rail-foot" aria-label="Account">
+        <a href="https://printcell.ashutosh-sharma.com/" id="portal-link" class="hidden">All apps</a>
+        <button type="button" id="signout">Sign out</button>
+      </nav>
+    </aside>
 
-      <div id="detail" class="hidden">
-        <div class="head">
-          <div class="band" id="d-band"><span class="st" id="d-status"></span><span class="why" id="d-why"></span></div>
-          <div class="who">
-            <h2 id="d-name"></h2>
-            <span class="muted" id="d-code"></span>
-            <div><button type="button" class="btn secondary" id="cust-export" style="margin-top:10px">Export PDF</button></div>
+    <div class="main">
+      <!-- Customers -->
+      <main class="view hidden" id="customers-view">
+        <header class="bar">
+          <h1>Customers</h1>
+          <div class="search">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+            <input id="search" type="search" placeholder="Customer name or GL code" autocomplete="off" aria-label="Search customers">
+            <kbd aria-hidden="true">/</kbd>
           </div>
-          <div class="stats">
-            <div class="stat"><div class="k">Total dues</div><div class="v" id="s-due"></div></div>
-            <div class="stat"><div class="k">Total PDC</div><div class="v" id="s-pdc"></div></div>
-            <div class="stat"><div class="k">LBS (days since last bill)</div><div class="v" id="s-lbs"></div></div>
-            <div class="stat"><div class="k">LBP (days since oldest bill)</div><div class="v" id="s-lbp"></div></div>
-            <div class="stat"><div class="k">Credit days</div><div class="v" id="s-cd"></div></div>
-            <div class="stat"><div class="k">Bills past credit days</div><div class="v" id="s-l"></div></div>
-            <div class="stat"><div class="k">Bills past credit + 30 days</div><div class="v" id="s-l30"></div></div>
-            <div class="stat"><div class="k">Cheques past due date</div><div class="v" id="s-p"></div></div>
-            <div class="stat"><div class="k">Overdue cheques total</div><div class="v" id="s-pa"></div></div>
+          <select id="sort" aria-label="Sort customers">
+            <option value="risk">Worst status first</option>
+            <option value="due">Highest dues first</option>
+            <option value="name">A to Z</option>
+          </select>
+          <button type="button" class="btn quiet hidden" id="list-export-open">Export list</button>
+        </header>
+        <div class="deck" id="deck" role="group" aria-label="Filter by status"></div>
+
+        <div class="work">
+          <section class="list-pane" aria-label="Customer list">
+            <p class="list-sum" id="list-sum"></p>
+            <ul class="clist" id="clist" role="listbox" aria-label="Customers"></ul>
+          </section>
+          <section class="detail-pane" id="detail-pane" aria-live="polite">
+            <div class="placeholder" id="placeholder">
+              <p>Pick a customer to see why they have their status, their open bills and their cheques.</p>
+              <p class="muted">Use ↑ and ↓ to move through the list.</p>
+            </div>
+            <article id="detail" class="detail hidden">
+              <button type="button" class="link back-sm" id="detail-back">Back to customers</button>
+              <header class="d-head">
+                <div class="d-sw" id="d-sw"><i></i><b id="d-status"></b></div>
+                <div class="d-who">
+                  <h2 id="d-name"></h2>
+                  <p class="muted" id="d-code"></p>
+                </div>
+                <button type="button" class="btn quiet small" id="cust-export">Export PDF</button>
+              </header>
+              <p class="why" id="d-why"></p>
+
+              <section class="ageing" aria-labelledby="age-h">
+                <div class="sec-head"><h3 id="age-h">Open bills by age</h3><span class="muted" id="age-note"></span></div>
+                <div class="age-bar" id="age-bar" role="group" aria-label="Filter bills by age"></div>
+                <div class="age-legend" id="age-legend"></div>
+              </section>
+
+              <dl class="facts" id="facts"></dl>
+
+              <div class="tables">
+                <section>
+                  <div class="sec-head"><h3>Bills</h3><span class="muted" id="bills-count"></span></div>
+                  <div class="tbl-wrap" id="bills"></div>
+                </section>
+                <section>
+                  <div class="sec-head"><h3>Cheques (PDC)</h3><span class="muted" id="pdc-count"></span></div>
+                  <p class="split" id="pdc-split"></p>
+                  <div class="tbl-wrap" id="pdcs"></div>
+                </section>
+              </div>
+
+              <details class="rules">
+                <summary>How the status is decided</summary>
+                <ol>
+                  <li><i class="dot" style="--i:var(--s-green)"></i>Green: total dues are Rs 2,500 or less.</li>
+                  <li><i class="dot" style="--i:var(--s-black)"></i>Black: cheques past their date, and bills past credit + 30 days exceed total PDC.</li>
+                  <li><i class="dot" style="--i:var(--s-gray)"></i>Gray: cheques past their date.</li>
+                  <li><i class="dot" style="--i:var(--s-blue)"></i>Blue: bills past credit + 30 days exceed total PDC.</li>
+                  <li><i class="dot" style="--i:var(--s-red)"></i>Red: bills past credit days exceed total PDC.</li>
+                  <li><i class="dot" style="--i:var(--s-yellow)"></i>Yellow: PDC covers bills past credit days, but the oldest bill is past credit days.</li>
+                  <li><i class="dot" style="--i:var(--s-green)"></i>Green: none of the above.</li>
+                </ol>
+                <p>Rules are checked in this order; the first one that applies sets the status.</p>
+              </details>
+            </article>
+          </section>
+        </div>
+      </main>
+
+      <!-- Cheques to send -->
+      <main class="view hidden" id="pdc-view">
+        <header class="bar">
+          <h1>Cheques to send</h1>
+          <div class="search">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+            <input id="pdc-q" type="search" placeholder="Customer, PDC no. or cheque no." autocomplete="off" aria-label="Find a cheque">
+          </div>
+          <select id="pdc-agent" aria-label="Agent"></select>
+          <button type="button" class="btn quiet" id="pdc-export">Export PDF</button>
+        </header>
+        <div class="filters">
+          <div class="seg" id="pdc-when" role="group" aria-label="Cheque date"></div>
+          <div class="seg" id="pdc-sent" role="group" aria-label="Sent today">
+            <button type="button" data-v="all" aria-pressed="true">All</button>
+            <button type="button" data-v="unsent" aria-pressed="false">Not sent yet</button>
+            <button type="button" data-v="sent" aria-pressed="false">Sent</button>
           </div>
         </div>
+        <div class="progress" id="pdc-progress"></div>
+        <p class="msg error" id="pdc-msg" role="status"></p>
+        <section class="sheet flush"><div class="tbl-wrap" id="pdc-table"></div></section>
+      </main>
 
-        <div class="tables">
-          <div class="card">
-            <div class="card-head"><h3>Bills</h3><span class="muted" id="bills-count"></span></div>
-            <div class="tbl-wrap" id="bills"></div>
+      <!-- Sent cheques -->
+      <main class="view hidden" id="sent-view">
+        <header class="bar">
+          <h1>Sent cheques</h1>
+          <div class="search">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+            <input id="sent-q" type="search" placeholder="Customer or cheque no." autocomplete="off" aria-label="Find a sent cheque">
           </div>
-          <div class="card">
-            <div class="card-head"><h3>PDC</h3><span class="muted" id="pdc-count"></span></div>
-            <p class="split" id="pdc-split"></p>
-            <div class="tbl-wrap" id="pdcs"></div>
+          <button type="button" class="btn quiet" id="sent-export">Export Excel</button>
+        </header>
+        <div class="filters">
+          <div class="seg" id="sent-range" role="group" aria-label="Sent">
+            <button type="button" data-r="today" aria-pressed="true">Today</button>
+            <button type="button" data-r="yesterday" aria-pressed="false">Yesterday</button>
+            <button type="button" data-r="week" aria-pressed="false">Last 7 days</button>
+          </div>
+          <div class="dates">
+            <label for="sent-from">From</label><input id="sent-from" type="date">
+            <label for="sent-to">to</label><input id="sent-to" type="date">
           </div>
         </div>
-
-        <details class="rules">
-          <summary>How the status is decided</summary>
-          <ol>
-            <li><span class="dot" style="--c:var(--s-green)"></span>Green: total dues are Rs 2,500 or less.</li>
-            <li><span class="dot" style="--c:var(--s-black)"></span>Black: cheques past their date, and bills past credit + 30 days exceed total PDC.</li>
-            <li><span class="dot" style="--c:var(--s-gray)"></span>Gray: cheques past their date.</li>
-            <li><span class="dot" style="--c:var(--s-blue)"></span>Blue: bills past credit + 30 days exceed total PDC.</li>
-            <li><span class="dot" style="--c:var(--s-red)"></span>Red: bills past credit days exceed total PDC.</li>
-            <li><span class="dot" style="--c:var(--s-yellow)"></span>Yellow: PDC covers bills past credit days, but the oldest bill (LBP) is past credit days.</li>
-            <li><span class="dot" style="--c:var(--s-green)"></span>Green: none of the above.</li>
-          </ol>
-          <p style="margin:8px 0 0">Rules are checked in this order; the first one that applies sets the status.</p>
-        </details>
-      </div>
-    </section>
-  </main>
-
-  <!-- PDC details -->
-  <main class="pdcview hidden" id="pdcview" aria-label="PDC details">
-    <div class="pdc-search">
-      <label for="pdc-q">Find a cheque</label>
-      <input id="pdc-q" type="search" placeholder="Customer name, PDC no. or cheque no." autocomplete="off">
+        <p class="sum-line" id="sent-counts"></p>
+        <p class="msg error" id="sent-msg" role="status"></p>
+        <section class="sheet flush"><div class="tbl-wrap" id="sent-table"></div></section>
+      </main>
     </div>
-    <div class="pdc-tools">
-      <div><label for="pdc-agent">Agent</label><select id="pdc-agent"></select></div>
-      <div><label for="pdc-status">Cheque date</label>
-        <select id="pdc-status">
-          <option value="all">All three</option>
-          <option value="Overdue">Overdue only</option>
-          <option value="Today">Today only</option>
-          <option value="Tomorrow">Tomorrow only</option>
-        </select></div>
-      <div><label for="pdc-sent">Sent today</label>
-        <select id="pdc-sent">
-          <option value="all">Show all</option>
-          <option value="unsent">Not sent yet</option>
-          <option value="sent">Sent only</option>
-        </select></div>
-      <div class="full"><button type="button" class="btn" id="pdc-export" style="width:100%">Export PDF</button></div>
-    </div>
-    <div class="pdc-counts" id="pdc-counts"></div>
-    <p class="pdc-msg" id="pdc-msg" role="status"></p>
-    <div class="card"><div class="tbl-wrap" id="pdc-table"></div></div>
-  </main>
+  </div>
 
-  <!-- Sent cheques -->
-  <main class="pdcview hidden" id="sentview" aria-label="Sent cheques">
-    <div class="pdc-tools">
-      <div><label for="sent-from">Sent from</label><input id="sent-from" type="date"></div>
-      <div><label for="sent-to">Sent to</label><input id="sent-to" type="date"></div>
-      <div><label for="sent-q">Find</label><input id="sent-q" type="search" placeholder="Customer or cheque no." autocomplete="off"></div>
-      <div class="full"><button type="button" class="btn" id="sent-export" style="width:100%">Export Excel</button></div>
+  <!-- Panel: export the customer list -->
+  <div class="scrim hidden" id="scrim"></div>
+  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title" hidden>
+    <header class="panel-head">
+      <h2 id="panel-title">Export the customer list</h2>
+      <button type="button" class="icon-btn" id="panel-close" aria-label="Close">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+    </header>
+    <div class="panel-body">
+      <p>Customers with these statuses, matching the current search, in the current order. The PDF lists each customer's agent and status.</p>
+      <fieldset class="pick-st" id="list-export-st"><legend>Statuses</legend></fieldset>
+      <p><button type="button" class="link" id="list-export-all">All</button> · <button type="button" class="link" id="list-export-none">None</button></p>
+      <div class="actions"><button type="button" class="btn" id="list-export">Export PDF</button></div>
+      <p class="msg" id="list-export-msg" role="status"></p>
     </div>
-    <div class="pdc-counts" id="sent-counts"></div>
-    <p class="pdc-msg" id="sent-msg" role="status"></p>
-    <div class="card"><div class="tbl-wrap" id="sent-table"></div></div>
-  </main>
+  </aside>
 
-<script src="app1.js"></script>
-<script src="app2.js"></script>
-<script src="app3.js"></script>
-<script src="app5.js"></script>
-<script src="app4.js"></script>
-<script src="export.js"></script>
+  <div class="toast hidden" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
+
+<script src="app.js"></script>
 </body>
 </html>

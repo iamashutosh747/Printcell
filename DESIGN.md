@@ -45,6 +45,22 @@ typography:
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.45
+  detail-title:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "-0.01em"
+  panel-title:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "19px"
+    fontWeight: 600
+    lineHeight: 1.25
+  control:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.4
   meta:
     fontFamily: "Hanken Grotesk, system-ui, sans-serif"
     fontSize: "13px"
@@ -60,8 +76,11 @@ typography:
     fontSize: "18px"
     fontWeight: 400
 rounded:
+  mark: "2px"
+  kbd: "3px"
   sm: "4px"
   md: "6px"
+  sheet-phone: "10px"
 spacing:
   xs: "6px"
   sm: "10px"
@@ -123,7 +142,7 @@ The portal (printcell.ashutosh-sharma.com) is the reference build. CSRC, DPR, Co
 Black `#3f434b`, Gray `#a5a9b0`, Blue `#3d8dc6`, Red `#d65d69`, Yellow `#e8be3e`, Green `#4ca680`, always in this order (worst first) and always labelled.
 
 ### Neutral
-Desk `#eef0ec` is the page ground; Paper `#ffffff` is every sheet, panel and chip; Soft `#f5f6f3` is hover and quiet fills. Ink `#1d2024` for text, `#555a62` secondary, `#62676f` meta (at least 4.9:1 on the desk). Rules `#e2e4df`, stronger rules and control borders `#cdd0ca`.
+Desk `#eef0ec` is the page ground; Paper `#ffffff` is every sheet, panel and chip; Soft `#f5f6f3` is hover and quiet fills. Ink `#1d2024` for text (pressed buttons go to `#000`), `#555a62` secondary, `#62676f` meta (at least 4.9:1 on the desk). Rules `#e2e4df`, stronger rules and control borders `#cdd0ca`.
 
 ### State
 Bad `#b3343a` (late, over, overdue), OK `#2a7a50` (done, active).
@@ -140,7 +159,9 @@ Hanken Grotesk for everything, with tabular figures on by default. Mukta for Nep
 ### Hierarchy
 - Page title: 28px / 600 / -0.015em (23px on phones).
 - Heading: 17px / 600, the work-area and panel titles.
+- Detail title: 22px / 600 (a customer's name in DPR); panel title 19px / 600.
 - Body: 15px / 400 / 1.45.
+- Control and table text: 14px / 400.
 - Meta: 13px / 400, second lines, labels, counts.
 - Swatch figure: 20px / 600.
 
@@ -162,7 +183,7 @@ Flat by default: sheets sit on the desk with no shadow. Only lifted things get t
 
 ## Shapes
 
-Small radii: 4px on controls, chips and swatches, 6px on sheets and panels. No pills.
+Small radii: 2px on colour marks and dots, 3px on key caps, 4px on controls, chips and swatches, 6px on sheets and panels, 10px on the top corners of a phone bottom sheet. No pills.
 
 ## Components
 
