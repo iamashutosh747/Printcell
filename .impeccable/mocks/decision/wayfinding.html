@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--ground:#f5f5f2;--panel:#fff;--ink:#141517;--ink2:#5b5f66;--rule:#e0e1dc;--sign:#ffcc00;--red:#c63d3d;--green:#2f8a5b}
+body{width:1440px;height:900px;overflow:hidden;font:16px/1.4 Hind,sans-serif;color:var(--ink);background:var(--ground);display:grid;grid-template-columns:76px 1fr}
+.rail{background:var(--ink);display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:6px}
+.rail a{width:56px;height:56px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#c9cbd0;text-decoration:none;font-size:11.5px;gap:3px}
+.rail a i{width:18px;height:18px;border:2px solid currentColor;border-radius:3px}
+.rail a.on{background:var(--sign);color:var(--ink)}
+.rail .sp{flex:1}
+main{padding:24px 32px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;align-items:baseline;gap:16px}
+header h1{font-size:28px;font-weight:600}header span{color:var(--ink2);font-size:17px}
+header .q{margin-left:auto;width:360px;height:40px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:0 12px;display:flex;align-items:center;color:var(--ink2);font-size:15px}
+/* the sign band: only the next decision, in yellow */
+.sign{background:var(--sign);border-radius:6px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:28px;padding:20px 28px}
+.arrow{width:72px;height:72px;background:var(--ink);border-radius:4px;display:flex;align-items:center;justify-content:center}
+.arrow svg{width:40px;height:40px;stroke:var(--sign);stroke-width:4;fill:none}
+.sign .what{font-size:16px;font-weight:500}.sign .what b{display:block;font-size:34px;font-weight:700;line-height:1.05;letter-spacing:-.01em}
+.sign .big{font-size:76px;font-weight:700;line-height:.9;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sign .big small{display:block;font-size:15px;font-weight:500;letter-spacing:0}
+.sign .go{background:var(--ink);color:#fff;border-radius:6px;padding:12px 18px;font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;flex:1;min-height:0}
+section{background:var(--panel);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.hd .pic{width:26px;height:26px;background:var(--ink);border-radius:3px}
+.hd h2{font-size:18px;font-weight:600}.hd span{color:var(--ink2);font-size:14px}.hd a{margin-left:auto;font-size:14px;font-weight:600;color:var(--ink)}
+ul{list-style:none;padding:0}
+li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--rule)}
+.box{width:22px;height:22px;border:2px solid var(--ink);border-radius:4px;flex:none}.box.done{background:var(--ink)}
+.t{flex:1}.t small{display:block;color:var(--ink2);font-size:13px}
+.late{color:var(--red);font-weight:600;font-size:13px}
+.time{width:46px;font-weight:600;font-variant-numeric:tabular-nums}
+.ok{color:var(--green);font-weight:600;font-size:13px}
+.row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--rule);font-size:15px}
+.row i{width:14px;height:14px;border-radius:2px;background:var(--s)}.row b{font-variant-numeric:tabular-nums}
+.sum{margin-top:auto;padding-top:10px;color:var(--ink2);font-size:14px}.sum b{color:var(--ink)}
+.red{color:var(--red);font-weight:700}
+</style></head><body>
+<nav class="rail"><a class="on" href="#"><i></i>Today</a><a href="#"><i></i>Tasks</a><a href="#"><i></i>CSRC</a><a href="#"><i></i>DPR</a><a href="#"><i></i>Coverage</a><span class="sp"></span><a href="#"><i></i>Settings</a></nav>
+<main>
+  <header><h1>Good morning, Ashutosh</h1><span>Sunday 15 November · कार्तिक २९, २०८३</span><div class="q">Search customers, calls, tasks</div></header>
+  <div class="sign">
+    <div class="arrow"><svg viewBox="0 0 40 40"><path d="M8 20h24M22 10l10 10-10 10"/></svg></div>
+    <div class="what">Next call, on-call · Suresh<b>Nabil Bank HQ, Kamaladi</b></div>
+    <div class="big">11:30<small>in 40 minutes</small></div>
+    <span class="go">Open call</span>
+  </div>
+  <div class="grid">
+    <section><div class="hd"><i class="pic"></i><h2>Tasks</h2><span>3 today, 2 late</span><a href="#">Open Tasks</a></div>
+      <ul><li><span class="box"></span><span class="t">TDS deposit, Kartik<small>Biz Print · due Kartik 25</small></span><span class="late">4 days late</span></li>
+      <li><span class="box"></span><span class="t">Toner stock count<small>Print Cell · due Kartik 27</small></span><span class="late">2 days late</span></li>
+      <li><span class="box"></span><span class="t">Bank reconciliation, NIC Asia<small>Print Cell</small></span></li>
+      <li><span class="box done"></span><span class="t">VAT register upload<small>Biz Print · waiting for approval</small></span></li></ul></section>
+    <section><div class="hd"><i class="pic"></i><h2>Calls today</h2><span>7, 2 done</span><a href="#">Open CSRC</a></div>
+      <ul><li><span class="time">10:00</span><span class="t">Himalayan Bank, Thamel<small>SCH · Rajan, Bikash</small></span><span class="ok">Done</span></li>
+      <li><span class="time">11:30</span><span class="t">Nabil Bank HQ<small>OC · Suresh</small></span></li>
+      <li><span class="time">13:00</span><span class="t">Kathmandu University<small>SCH · Rajan</small></span></li>
+      <li><span class="time">14:30</span><span class="t">Hotel Annapurna<small>SCH · Bikash</small></span></li></ul></section>
+    <section><div class="hd"><i class="pic"></i><h2>Customer dues</h2><span>412</span><a href="#">Open DPR</a></div>
+      <div class="row" style="--s:#3f434b"><i></i><span>Black, both late</span><b>38</b></div>
+      <div class="row" style="--s:#a5a9b0"><i></i><span>Gray, cheque late</span><b>61</b></div>
+      <div class="row" style="--s:#3d8dc6"><i></i><span>Blue, credit +30</span><b>94</b></div>
+      <div class="row" style="--s:#d65d69"><i></i><span>Red, past credit</span><b>27</b></div>
+      <div class="row" style="--s:#e8be3e"><i></i><span>Yellow, PDC covers</span><b>73</b></div>
+      <div class="row" style="--s:#4ca680"><i></i><span>Green, in terms</span><b>119</b></div>
+      <p class="sum">Over-supplied toner: <b class="red">4 cost centres</b></p></section>
+  </div>
+</main></body></html>

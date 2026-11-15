@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T12:00:00Z",
+  "title": "Design System: Print Cell",
+  "extensions": {
+    "colorMeta": {
+      "ink-k": { "role": "primary", "displayName": "Key (portal)" },
+      "ink-m": { "role": "secondary", "displayName": "Magenta (Tasks)" },
+      "ink-c": { "role": "secondary", "displayName": "Cyan (CSRC)" },
+      "ink-y": { "role": "secondary", "displayName": "Yellow (DPR)" },
+      "ink-g": { "role": "secondary", "displayName": "Grey (Coverage)" },
+      "desk": { "role": "neutral", "displayName": "Desk" },
+      "paper": { "role": "neutral", "displayName": "Chip stock" }
+    },
+    "typographyMeta": {
+      "swatch-figure": { "displayName": "Swatch figure", "purpose": "The count on a status swatch." },
+      "nepali-date": { "displayName": "Nepali date", "purpose": "BS dates beside the English date." }
+    },
+    "shadows": [
+      { "name": "lift", "value": "0 1px 2px rgba(29,32,36,.06), 0 12px 32px -12px rgba(29,32,36,.22)", "purpose": "Only for lifted things: panel, search results, toast, hovered swatch." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(.16, 1, .3, 1)", "purpose": "Every transition; panels slide 40px and fade in over 320ms." },
+      { "name": "deck-fan", "value": "700ms, 45ms stagger", "purpose": "The swatch deck fans out from a stack once per visit." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "760px" },
+      { "name": "fit-one-screen", "value": "1000px wide and 600px tall" }
+    ]
+  },
+  "components": [
+    { "name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "The one main action in a view or panel.",
+      "html": "<button class=\"ds-btn\">Open DPR</button>",
+      "css": ".ds-btn{font:600 15px 'Hanken Grotesk',sans-serif;height:40px;padding:0 16px;border-radius:4px;background:#1d2024;color:#fff;border:1px solid #1d2024;cursor:pointer}.ds-btn:hover{background:#000}.ds-btn:focus-visible{outline:2px solid #1d2024;outline-offset:2px}" },
+    { "name": "App Chip", "kind": "nav", "refersTo": "app-chip", "description": "An app in the rail: ink block over a label strip with a live count.",
+      "html": "<button class=\"ds-chip\" style=\"--i:#c8237a\"><i></i><span><b>Tasks</b><small>7 open</small></span></button>",
+      "css": ".ds-chip{width:200px;padding:0;text-align:left;font:15px 'Hanken Grotesk',sans-serif;background:#fff;border:1px solid #e2e4df;border-radius:4px;overflow:hidden;cursor:pointer}.ds-chip i{display:block;height:30px;background:var(--i);opacity:.3;transition:opacity .2s}.ds-chip:hover i{opacity:.55}.ds-chip span{display:flex;justify-content:space-between;padding:7px 10px 8px}.ds-chip b{font-weight:600}.ds-chip small{font-size:13px;color:#62676f}" },
+    { "name": "Status Swatch", "kind": "custom", "refersTo": "status-swatch", "description": "A DPR status as a swatch; pressing it opens its customers.",
+      "html": "<button class=\"ds-sw\" style=\"--s:#d65d69\"><i></i><span><b>27</b><small>Red</small><small>Rs 48.6 L</small></span></button>",
+      "css": ".ds-sw{width:120px;padding:0;text-align:left;font:15px 'Hanken Grotesk',sans-serif;background:#fff;border:1px solid #e2e4df;border-radius:4px;overflow:hidden;cursor:pointer;transition:transform .25s cubic-bezier(.16,1,.3,1)}.ds-sw:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(29,32,36,.06),0 12px 32px -12px rgba(29,32,36,.22)}.ds-sw i{display:block;height:56px;background:var(--s)}.ds-sw span{display:block;padding:7px 9px 9px}.ds-sw b{display:block;font-size:20px;font-weight:600}.ds-sw small{display:block;font-size:12.5px;color:#555a62}" },
+    { "name": "Search Field", "kind": "input", "refersTo": "input", "description": "Search with the / shortcut.",
+      "html": "<label class=\"ds-search\"><input placeholder=\"Search customers, calls, tasks\"><kbd>/</kbd></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:8px;width:320px;height:40px;padding:0 10px 0 12px;background:#fff;border:1px solid #cdd0ca;border-radius:4px}.ds-search:focus-within{border-color:#1d2024;box-shadow:0 0 0 3px rgba(29,32,36,.1)}.ds-search input{flex:1;border:0;outline:0;font:15px 'Hanken Grotesk',sans-serif}.ds-search kbd{font:600 12px sans-serif;color:#62676f;border:1px solid #cdd0ca;border-radius:3px;padding:3px 6px}" },
+    { "name": "Late Mark", "kind": "chip", "description": "Late or over-limit: words plus a screen-tint hatch.",
+      "html": "<span class=\"ds-late\">4 days late</span>",
+      "css": ".ds-late{display:inline-flex;align-items:center;gap:6px;font:600 13px 'Hanken Grotesk',sans-serif;color:#b3343a}.ds-late::before{content:'';width:10px;height:10px;border:1px solid #b3343a;border-radius:1px;background:repeating-linear-gradient(135deg,#b3343a 0 1.5px,transparent 1.5px 4px)}" }
+  ],
+  "narrative": {
+    "northStar": "The ink swatch book",
+    "overview": "Every app is a page from a printer's ink swatch book: each app owns one process ink, and every status the business tracks is a labelled swatch you can pick up.",
+    "keyCharacteristics": ["White chip stock on a cool desk", "One process ink per app", "Statuses as labelled swatches", "Act in place with undo", "Fits one screen on a computer"],
+    "rules": [
+      { "name": "The One Ink Rule", "body": "An app's ink appears as fields, never as text.", "section": "colors" },
+      { "name": "The Labelled Swatch Rule", "body": "A swatch always carries its name and figure.", "section": "colors" },
+      { "name": "The Second Cue Rule", "body": "Late and over-limit states carry words plus a hatch mark.", "section": "colors" },
+      { "name": "The Weight Rule", "body": "Rank comes from weight and size, never all-caps labels.", "section": "typography" }
+    ],
+    "dos": ["Act in place with undo", "Totals add up to the rows beneath", "Keep DPR statuses in order and labelled"],
+    "donts": ["No app ink as text", "No eyebrows, gradient text or glass", "No dark theme"]
+  }
+}

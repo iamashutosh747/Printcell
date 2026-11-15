@@ -1,4 +1,4 @@
-// Print Cell portal: one sign-in, a card per app, and one-click access to CSRC, Tasks, DPR and Coverage.
+// Print Cell portal: one sign-in, today across every app, drill-down panels, and one-click access to each app.
 (function () {
   const SUPABASE_URL = "https://fbtddbcypmevfokpiyzo.supabase.co";
   const SUPABASE_KEY = "sb_publishable_kPJUJh8ap5h1boN8uXwY1g_3cJfvfq-";
@@ -6,21 +6,23 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const TS = window.TaskSchedule;
 
-  // Card order and ink. "key" matches the portal_me / portal_home field and the portal-launch app name.
-  const APPS = [
-    { key: "tasks", name: "Tasks", ink: "var(--p-magenta)" },
-    { key: "csrc", name: "CSRC", ink: "var(--p-cyan)" },
-    { key: "dpr", name: "DPR", ink: "var(--p-yellow)" },
-    { key: "coverage", name: "Coverage", ink: "var(--p-key)" },
-  ];
-  // DPR statuses in DPR's own order (worst first) and its colours.
+  // "key" matches the portal_me / portal_home field and the portal-launch app name.
+  const APPS = {
+    tasks: { name: "Tasks", ink: "var(--m)" },
+    csrc: { name: "CSRC", ink: "var(--c)" },
+    dpr: { name: "DPR", ink: "var(--y)" },
+    coverage: { name: "Coverage", ink: "var(--g)" },
+  };
+  const ORDER = ["tasks", "csrc", "dpr", "coverage"];
+  // DPR statuses in DPR's own order (worst first), their swatch and what they mean.
   const STATUSES = [
-    ["Black", "var(--s-black)"], ["Gray", "var(--s-gray)"], ["Blue", "var(--s-blue)"],
-    ["Red", "var(--s-red)"], ["Yellow", "var(--s-yellow)"], ["Green", "var(--s-green)"],
+    ["Black", "var(--s-black)", "Cheque late and credit +30"], ["Gray", "var(--s-gray)", "Cheque past its date"],
+    ["Blue", "var(--s-blue)", "Past credit + 30 days"], ["Red", "var(--s-red)", "Past credit days"],
+    ["Yellow", "var(--s-yellow)", "PDC covers, old bill"], ["Green", "var(--s-green)", "Within terms"],
   ];
+  const INK_OF = Object.fromEntries(STATUSES.map(([s, ink]) => [s, ink]));
   const DPR_LABEL = { full: "Full report", pdc: "PDC cheques only", agent: "Agent" };
   const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR", open_coverage: "Opened Coverage" };
-  const ICON_OPEN = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4.5H4.5v11h11V12M11 4.5h4.5V9M15.5 4.5 9 11"/></svg>';
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -29,17 +31,22 @@
   const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
   const when = (iso) => iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Kathmandu",
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-  function money(n) {                       // compact rupees: 1.25 Cr, 4.3 L, 2,500
+  const rs = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+  const money = (n) => { const v = Number(n || 0); return v < 0 ? "(" + rs.format(-v) + ")" : rs.format(v); };
+  function short(n) {                       // compact rupees: 1.25 Cr, 4.3 L, 2,500
     const v = Math.abs(Number(n || 0));
-    const s = v >= 1e7 ? (v / 1e7).toFixed(2) + " Cr" : v >= 1e5 ? (v / 1e5).toFixed(1) + " L" : Math.round(v).toLocaleString("en-US");
+    const s = v >= 1e7 ? (v / 1e7).toFixed(2) + " Cr" : v >= 1e5 ? (v / 1e5).toFixed(1) + " L" : rs.format(v);
     return Number(n) < 0 ? "(" + s + ")" : s;
   }
-  const lateText = (n) => n + " " + (n === 1 ? "is" : "are") + " late";
+  const hhmm = (t) => (t ? String(t).slice(0, 5) : "");
+  const num1 = (n) => { const v = Number(n || 0); return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+  const debounce = (fn, ms) => { let t = 0; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   let me = null;          // portal_me() for the signed-in person
-  let home = null;        // portal_home() card data
+  let home = null;        // portal_home() data
   let roster = null;      // admin: portal-admin "list" result
   let editing = null;     // admin: id of the person being edited, or "" for a new one
+  let fanned = false;     // the swatch deck fans out once per visit
 
   // ---------- server calls ----------
   async function callFn(name, body) {
@@ -57,21 +64,26 @@
     if (!res.ok) throw new Error(out.error || "Something went wrong (" + res.status + "). Try again.");
     return out;
   }
-
-  // ---------- views ----------
-  const VIEWS = ["signin", "home", "settings", "admin", "activity"];
-  function show(view) {
-    $("boot").classList.add("hidden");
-    VIEWS.forEach((v) => $(v + "-view").classList.toggle("hidden", v !== view));
-    const signedIn = view !== "signin";
-    $("brand").classList.toggle("hidden", signedIn);
-    $("who").classList.toggle("hidden", !signedIn);
-    $("top-actions").classList.toggle("hidden", !signedIn);
-    if (view === "settings") $("settings-link").setAttribute("aria-current", "page"); else $("settings-link").removeAttribute("aria-current");
-    document.body.classList.toggle("fit", view === "home");
-    window.scrollTo(0, 0);
+  async function rpc(name, args) {
+    const { data, error } = await sb.rpc(name, args || {});
+    if (error) throw new Error("Couldn't load this. Check your connection and try again.");
+    return data;
   }
 
+  // ---------- views ----------
+  const VIEWS = ["home", "settings", "admin", "activity"];
+  function show(view) {
+    $("boot").classList.add("hidden");
+    $("signin-view").classList.toggle("hidden", view !== "signin");
+    $("shell").classList.toggle("hidden", view === "signin");
+    VIEWS.forEach((v) => $(v + "-view").classList.toggle("hidden", v !== view));
+    document.querySelectorAll("[data-nav]").forEach((a) => {
+      if (a.dataset.nav === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    document.body.classList.toggle("fit", view === "home");
+    closePanel(); closeResults();
+    window.scrollTo(0, 0);
+  }
   function route() {
     if (!me) return;
     const r = location.hash.replace(/^#\/?/, "");
@@ -80,10 +92,9 @@
       if (r === "admin") loadPeople(); else loadActivity();
     } else if (r === "settings") {
       show("settings");
-      $("admin-links").classList.toggle("hidden", !me.is_admin);
     } else {
       show("home");
-      if (home) renderCards(); else loadHome();
+      if (home) renderHome(); else loadHome();
     }
   }
 
@@ -99,9 +110,13 @@
       return;
     }
     me = data; home = null;
-    const t = TS.todayNepal();
     $("who-name").textContent = me.full_name;
-    $("who-date").textContent = TS.WEEKDAYS[TS.weekday(t)] + ", " + TS.fmtAD(t) + " · " + TS.fmtBS(t);
+    $("who-role").textContent = me.is_admin ? "Portal admin" : plural(myApps().length, "app", "apps");
+    document.querySelectorAll(".admin-only").forEach((el) => el.classList.toggle("hidden", !me.is_admin));
+    const t = TS.todayNepal();
+    $("today-en").textContent = TS.WEEKDAYS[TS.weekday(t)] + ", " + TS.fmtAD(t, false);
+    $("today-np").textContent = TS.fmtBS(t);
+    renderChips();
     route();
   }
 
@@ -135,263 +150,24 @@
     $("si-user").focus();
   });
 
-  // ---------- home: cards ----------
-  const myApps = () => APPS.filter((a) => me && me[a.key]);
-  // On a computer screen the home page fits one window: each list shows as many rows as fit.
-  const FIT = window.matchMedia("(min-width: 980px) and (min-height: 560px)");
-  const LIST_CAP = 30;   // rows rendered per list before fitting; the rest only count towards "more"
-
-  function cardShell(app, inner) {
-    return '<section class="card" id="card-' + app.key + '" style="--c:' + app.ink + '" aria-labelledby="h-' + app.key + '">' +
-      '<div class="card-head"><span class="ink"></span><h2 id="h-' + app.key + '">' + app.name + "</h2>" +
-      '<button type="button" class="open" data-open="' + app.key + '">Open<span class="sr-only"> ' + app.name + "</span>" + ICON_OPEN + "</button></div>" +
-      inner + '<p class="card-err" role="alert"></p></section>';
+  // ---------- rail: one swatch chip per app ----------
+  const myApps = () => ORDER.filter((k) => me && me[k]);
+  function renderChips() {
+    $("chips").innerHTML =
+      '<a class="chip" href="#/" data-nav="home" style="--i:var(--k)"><i></i><span><b>Today</b><small>Home</small></span></a>' +
+      myApps().map((k) => '<button type="button" class="chip" data-open="' + k + '" style="--i:' + APPS[k].ink + '"><i></i><span><b>' +
+        APPS[k].name + '</b><small id="chip-' + k + '">Open</small></span></button>').join("") +
+      '<p class="err" id="chip-err" role="alert"></p>';
   }
-  function setCards(html, n) {
-    $("cards").dataset.n = String(n);
-    $("cards").innerHTML = html;
-  }
-  function renderSkeletons() {
-    const apps = myApps();
-    setCards(apps.length
-      ? apps.map((a) => cardShell(a, '<span class="sk big"></span><div class="card-body"><span class="sk w80"></span><span class="sk w60"></span><span class="sk w40"></span></div>')).join("")
-      : '<section class="card"><p class="card-sum">Nothing here yet<small>You don\'t have access to any apps yet. Ask an admin to add you.</small></p></section>', Math.max(1, apps.length));
-  }
-  async function loadHome() {
-    $("home-msg").innerHTML = "";
-    renderSkeletons();
-    if (!myApps().length) return;
-    const { data, error } = await sb.rpc("portal_home");
-    if (error || !data) {
-      $("home-msg").innerHTML = 'Couldn\'t load your cards. <button type="button" class="more" id="home-retry">Try again</button>';
-      $("home-retry").addEventListener("click", loadHome);
-      return;
-    }
-    home = data;
-    renderCards();
-  }
-  function renderCards() {
-    const parts = [];
-    for (const app of myApps()) {
-      const d = home[app.key];
-      if (!d) continue;
-      parts.push(cardShell(app, ({ tasks: tasksCard, csrc: csrcCard, dpr: dprCard, coverage: coverageCard })[app.key](d)));
-    }
-    setCards(parts.join(""), parts.length);
-    wireDonut();
-    fitLists();
-  }
-
-  // A "more" link counts rows that are not shown: ones never rendered (data-base) plus ones hidden to fit.
-  const moreBtn = (app, base) => '<button type="button" class="more more-fit" data-open="' + app + '" data-base="' + base + '" hidden></button>';
-  const MORE_TEXT = {
-    tasks: (n) => plural(n, "more task", "more tasks") + " in Tasks",
-    csrc: (n) => plural(n, "more call", "more calls") + " in CSRC",
-    coverage: (n) => plural(n, "more customer", "more customers") + " in Coverage",
-  };
-  function fitLists() {
-    for (const card of $("cards").querySelectorAll(".card")) {
-      const body = card.querySelector(".card-body"), more = card.querySelector(".more-fit");
-      const items = body ? [...body.querySelectorAll(".fit")] : [];
-      if (!items.length) continue;
-      items.forEach((i) => (i.hidden = false));
-      let hidden = 0;
-      const update = () => {
-        if (more) {
-          const n = Number(more.dataset.base) + hidden;
-          more.hidden = n === 0;
-          more.textContent = n ? MORE_TEXT[card.id.replace("card-", "")](n) : "";
-        }
-        body.querySelectorAll(".fit-group").forEach((g) => (g.hidden = !g.querySelector(".fit:not([hidden])")));
-      };
-      update();
-      if (!FIT.matches) continue;
-      // Hide rows from the end (late tasks go before today's) until the list fits its card.
-      for (let i = items.length - 1; i >= 1 && body.scrollHeight > body.clientHeight + 1; i--) {
-        items[i].hidden = true; hidden++; update();
-      }
-    }
-  }
-  let fitTimer = 0;
-  window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitLists, 120); });
-
-  // Tasks: today first, then late; tick to send for approval.
-  function tasksCard(t) {
-    const day = home.today;
-    const { late, due, waiting } = TS.today(t.tasks, t.completions, day);
-    const open = late.length + due.length;
-    const sum = open === 0 ? "Nothing left today" : plural(open, "task", "tasks") + " to finish";
-    const sub = open === 0 ? (waiting.length ? "Everything is ticked off." : "No tasks are due.")
-      : late.length ? lateText(late.length) : "All due today.";
-    const row = (o, isLate) => {
-      const ret = o.completion && o.completion.status === "returned";
-      const meta = ret ? "Sent back" + (o.completion.admin_note ? ": " + o.completion.admin_note : "")
-        : isLate ? "Was due " + TS.fmtBS(o.due, false) + ", " + plural(TS.diffDays(day, o.due), "day", "days") + " ago"
-        : o.due > day ? "Due by " + TS.fmtBS(o.due, false) : "";
-      return '<li class="tick fit' + (isLate || ret ? " is-late" : "") + '" data-meta="' + esc(meta) + '"><label>' +
-        '<input type="checkbox" data-task="' + esc(o.task.id) + '" data-due="' + o.due + '">' +
-        '<span class="t-name" title="' + esc(o.task.name) + '">' + esc(o.task.name) + "</span>" +
-        '<span class="t-meta">' + esc(meta) + "</span>" +
-        '</label><p class="t-err" role="alert"></p></li>';
-    };
-    const shownDue = due.slice(0, LIST_CAP);
-    const shownLate = late.slice().sort((a, b) => (a.due < b.due ? 1 : -1)).slice(0, Math.max(0, LIST_CAP - shownDue.length));
-    let body = "";
-    if (open === 0) body = '<p class="empty-note">Open Tasks to see what is coming up this week.</p>';
-    else {
-      if (shownDue.length) body += '<div class="fit-group"><p class="group-label">Today</p><ul class="ticks">' + shownDue.map((o) => row(o, false)).join("") + "</ul></div>";
-      if (shownLate.length) body += '<div class="fit-group"><p class="group-label late">Late</p><ul class="ticks">' + shownLate.map((o) => row(o, true)).join("") + "</ul></div>";
-      body += moreBtn("tasks", open - shownDue.length - shownLate.length);
-    }
-    const foot = '<span id="t-waiting"><strong>' + waiting.length + "</strong> waiting for approval</span>" +
-      (t.is_admin && t.to_review != null ? "<span><strong>" + t.to_review + "</strong> for you to review</span>" : "");
-    return '<p class="card-sum" id="t-sum" data-waiting="' + waiting.length + '" data-open="' + open + '" data-late="' + late.length + '">' + sum + "<small>" + sub + "</small></p>" +
-      '<div class="card-body">' + body + "</div>" + '<div class="card-foot">' + foot + "</div>";
-  }
-  function refreshTaskSummary() {
-    const card = $("card-tasks");
-    if (!card) return;
-    // Count against the full totals, not just the rows shown (some may be hidden behind "more").
-    const sumEl = $("t-sum"), base = Number(sumEl.dataset.waiting) || 0;
-    const ticked = card.querySelectorAll('.ticks input[type="checkbox"]:checked').length;
-    const tickedLate = card.querySelectorAll('.tick.is-late input[type="checkbox"]:checked').length;
-    const left = (Number(sumEl.dataset.open) || 0) - ticked, lateLeft = (Number(sumEl.dataset.late) || 0) - tickedLate;
-    $("t-sum").innerHTML = (left === 0 ? "Nothing left today" : plural(left, "task", "tasks") + " to finish") +
-      "<small>" + (left === 0 ? "Everything is ticked off." : lateLeft ? lateText(lateLeft) : "All due today.") + "</small>";
-    $("t-waiting").innerHTML = "<strong>" + (base + ticked) + "</strong> waiting for approval";
-  }
-  async function toggleTask(box) {
-    const li = box.closest(".tick"), err = li.querySelector(".t-err"), on = box.checked;
-    err.textContent = ""; box.disabled = true; li.classList.add("is-saving");
-    try {
-      const { data, error } = await sb.rpc(on ? "portal_task_submit" : "portal_task_unsubmit", { p_task: box.dataset.task, p_due: box.dataset.due });
-      if (error) throw new Error(/assigned to someone|Already approved|can't be submitted/i.test(error.message) ? error.message : "Couldn't save. Try again.");
-      if (!on && data === false) throw new Error("It has already been reviewed, so it can't be unticked here. Open Tasks.");
-      li.classList.toggle("is-done", on);
-      li.querySelector(".t-meta").textContent = on ? "Sent for approval" : li.dataset.meta;
-      refreshTaskSummary();
-    } catch (e) {
-      box.checked = !on;
-      err.textContent = e.message;
-    } finally {
-      box.disabled = false; li.classList.remove("is-saving");
-    }
-  }
-
-  // CSRC: today's calls; open and due-visit counts in the footer.
-  function csrcCard(c) {
-    const calls = c.calls || [];
-    const done = calls.filter((x) => x.status === "completed").length;
-    const sum = calls.length ? plural(calls.length, "call", "calls") + " today" : "No calls booked today";
-    const sub = calls.length ? (done ? done + " done, " + (calls.length - done) + " to go" : "None done yet")
-      : c.role === "manager" ? "Calls booked for today will show here." : "Your calls for today will show here.";
-    const hhmm = (t) => (t ? String(t).slice(0, 5) : "–");
-    const shown = calls.slice(0, LIST_CAP);
-    const list = shown.length
-      ? '<ul class="calls">' + shown.map((x) =>
-          '<li class="call fit' + (x.status === "completed" ? " is-done" : "") + '">' +
-          '<span class="c-time">' + hhmm(x.from) + '</span><span class="c-cust" title="' + esc(x.customer) + '">' + esc(x.customer) + "</span>" +
-          '<span class="c-tag">' + (x.status === "completed" ? "Done" : x.type === "SCH" ? "Scheduled" : "On call") + "</span>" +
-          '<span class="c-eng">' + esc(x.engineers || "No engineer assigned") + "</span></li>").join("") + "</ul>" + moreBtn("csrc", calls.length - shown.length)
-      : "";
-    const figs = [];
-    if (c.overdue_calls) figs.push('<p class="figure"><strong>' + c.overdue_calls + "</strong> earlier " + (c.overdue_calls === 1 ? "call is" : "calls are") + " still open</p>");
-    if (c.visits_due != null) figs.push('<p class="figure"><strong>' + c.visits_due + "</strong> " + (c.visits_due === 1 ? "customer is" : "customers are") + " due a scheduled visit</p>");
-    return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +
-      '<div class="card-body">' + (list || figs.join("")) + "</div>" +
-      (list && figs.length ? '<div class="card-foot" style="display:block">' + figs.join("") + "</div>" : "");
-  }
-
-  // DPR: customers by status as a donut, cheques due in the footer.
-  function donut(rows) {
-    const live = rows.filter((x) => x.n), total = live.reduce((s, r) => s + r.n, 0);
-    const R = 64, r = 46, c = 66, gap = live.length > 1 ? 2 / ((R + r) / 2) : 0;   // 2px gap between slices
-    const pt = (rad, ang) => (c + rad * Math.cos(ang)).toFixed(2) + " " + (c + rad * Math.sin(ang)).toFixed(2);
-    let a = -Math.PI / 2, paths = "";
-    for (const row of live) {
-      const sweep = (row.n / total) * Math.PI * 2;
-      let d;
-      if (live.length === 1) {   // one status only: a full ring
-        d = "M " + pt(R, 0) + " A " + R + " " + R + " 0 1 1 " + pt(R, Math.PI) + " A " + R + " " + R + " 0 1 1 " + pt(R, 0) +
-            " M " + pt(r, 0) + " A " + r + " " + r + " 0 1 0 " + pt(r, Math.PI) + " A " + r + " " + r + " 0 1 0 " + pt(r, 0) + " Z";
-      } else {
-        const a0 = a + gap / 2, a1 = a + sweep - gap / 2, large = a1 - a0 > Math.PI ? 1 : 0;
-        d = "M " + pt(R, a0) + " A " + R + " " + R + " 0 " + large + " 1 " + pt(R, a1) +
-            " L " + pt(r, a1) + " A " + r + " " + r + " 0 " + large + " 0 " + pt(r, a0) + " Z";
-      }
-      paths += '<path d="' + d + '" fill="' + row.ink + '" fill-rule="evenodd" data-status="' + row.status + '">' +
-        "<title>" + row.status + ": " + plural(row.n, "customer", "customers") + ", Rs " + money(row.due) + "</title></path>";
-      a += sweep;
-    }
-    return '<svg class="donut" viewBox="0 0 132 132" role="img" aria-label="Customers by status: ' + esc(live.map((x) => x.status + " " + x.n).join(", ")) + '">' + paths +
-      '<text class="d-total" x="66" y="69" text-anchor="middle">' + total + "</text>" +
-      '<text class="d-label" x="66" y="85" text-anchor="middle">customers</text></svg>';
-  }
-  function dprCard(d) {
-    const asOf = d.report_date ? "as of " + TS.fmtAD(d.report_date, false) : "";
-    const ch = d.cheques;
-    const chequeFoot = ch ? '<div class="card-foot"><span class="' + (ch.overdue ? "is-late" : "") + '"><strong>' + ch.overdue + "</strong> " + (ch.overdue === 1 ? "cheque" : "cheques") + " overdue</span>" +
-      "<span><strong>" + ch.today + "</strong> due today</span><span><strong>" + ch.tomorrow + "</strong> tomorrow</span></div>" : "";
-    if (!d.statuses) {   // PDC-only access: cheques are the whole story
-      return '<p class="card-sum">' + plural(ch.overdue + ch.today, "cheque", "cheques") + " to send<small>Cheques " + asOf + "</small></p>" + chequeFoot;
-    }
-    const by = new Map(d.statuses.map((s) => [s.status, s]));
-    const rows = STATUSES.map(([status, ink]) => ({ status, ink, n: (by.get(status) || {}).n || 0, due: (by.get(status) || {}).due || 0 }));
-    const total = rows.reduce((s, r) => s + r.n, 0);
-    const worst = rows[0].n + rows[1].n;    // Black + Gray: cheques past their date
-    const sum = plural(total, "customer", "customers") + (d.role === "agent" && d.agent ? " · " + esc(d.agent) : "");
-    const sub = (worst ? worst + " with cheques past their date" : "No cheques past their date") + (asOf ? ", " + asOf : "");
-    const legend = '<ul class="legend">' + rows.map((x) =>
-      '<li data-status="' + x.status + '" style="--c:' + x.ink + '"><span class="l-sw"></span><span>' + x.status + "</span>" +
-      '<span class="l-n">' + x.n + '</span><span class="l-due">' + (x.n ? "Rs " + money(x.due) : "–") + "</span></li>").join("") + "</ul>";
-    return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +
-      '<div class="card-body"><div class="dpr-body">' + (total ? donut(rows) : "") + legend + "</div></div>" + chequeFoot;
-  }
-  function wireDonut() {
-    const card = $("card-dpr");
-    const svg = card && card.querySelector(".donut");
-    if (!svg) return;
-    const set = (status) => {
-      svg.classList.toggle("is-hover", !!status);
-      svg.querySelectorAll("path").forEach((p) => p.classList.toggle("is-on", p.dataset.status === status));
-      card.querySelectorAll(".legend li").forEach((li) => li.classList.toggle("is-on", li.dataset.status === status));
-    };
-    card.querySelector(".dpr-body").addEventListener("pointerover", (e) => { const t = e.target.closest("[data-status]"); set(t ? t.dataset.status : null); });
-    card.querySelector(".dpr-body").addEventListener("pointerleave", () => set(null));
-  }
-
-  // Coverage: customers (cost centres) sent more toner than their usage explains.
-  function coverageCard(c) {
-    const groups = new Map();
-    for (const r of c.rows || []) {
-      const g = groups.get(r.cost_centre) || { name: r.cost_centre.replace(/^KM\s*-\s*/i, ""), red: [], excess: 0 };
-      if (r.status === "RED") { g.red.push(r); g.excess += Number(r.excess); }
-      groups.set(r.cost_centre, g);
-    }
-    const red = [...groups.values()].filter((g) => g.red.length).sort((a, b) => b.excess - a.excess);
-    const watch = [...groups.values()].filter((g) => !g.red.length).length;
-    const cut = c.cutoff ? "toner issued up to " + TS.fmtAD(c.cutoff, false) : "";
-    const sum = red.length ? plural(red.length, "customer", "customers") + " over-supplied" : "No customer over-supplied";
-    const sub = red.length ? "Sent more toner than their machines have used" : "Toner issued matches usage" + (cut ? ", " + cut : "") + ".";
-    const shown = red.slice(0, LIST_CAP);
-    const body = shown.length ? '<ul class="over">' + shown.map((g) =>
-      '<li class="fit"><span class="o-name" title="' + esc(g.name) + '">' + esc(g.name) + '</span><span class="o-parts">' +
-      g.red.sort((a, b) => b.excess - a.excess).map((r) =>
-        '<span class="chip" title="' + esc(r.part + ": " + r.issued + " issued, " + Number(r.expected).toFixed(1) + " used, " + Number(r.excess).toFixed(1) + " over the 1-toner allowance") + '">' +
-        esc(r.part) + " <b>+" + Number(r.excess).toFixed(1) + "</b></span>").join("") +
-      "</span></li>").join("") + "</ul>" + moreBtn("coverage", red.length - shown.length) : "";
-    const foot = (watch ? "<span><strong>" + watch + "</strong> more to watch</span>" : "") +
-      "<span>FY " + esc(String(c.fy).replace("-", "/")) + (red.length && cut ? ", " + cut : "") + "</span>";
-    return '<p class="card-sum">' + sum + "<small>" + sub + "</small></p>" +
-      (body ? '<div class="card-body">' + body + "</div>" : "") + '<div class="card-foot">' + foot + "</div>";
-  }
+  function setChip(k, html) { const el = $("chip-" + k); if (el) el.innerHTML = html; }
 
   // Open an app already signed in.
-  async function openApp(btn) {
-    const app = btn.dataset.open, card = $("card-" + app), err = card && card.querySelector(".card-err");
-    if (err) err.textContent = "";
-    const all = card ? card.querySelectorAll("[data-open]") : [btn];
-    all.forEach((b) => (b.disabled = true));
+  async function openApp(app, from) {
+    const chip = $("chips").querySelector('[data-open="' + app + '"]');
+    const errEl = (from && from.closest(".area") && from.closest(".area").querySelector(".area-err")) || $("chip-err");
+    errEl.textContent = "";
+    if (chip) chip.classList.add("busy");
+    document.querySelectorAll('[data-open="' + app + '"]').forEach((b) => (b.disabled = true));
     try {
       const { url, post } = await callFn("portal-launch", { app });
       if (post) {
@@ -403,8 +179,9 @@
         location.assign(url);
       }
     } catch (e) {
-      if (err) err.textContent = e.message;
-      all.forEach((b) => (b.disabled = false));
+      errEl.textContent = e.message;
+      if (chip) chip.classList.remove("busy");
+      document.querySelectorAll('[data-open="' + app + '"]').forEach((b) => (b.disabled = false));
     }
   }
   function postForm(action, fields) {
@@ -418,15 +195,535 @@
     document.body.appendChild(f);
     f.submit();
   }
-  $("cards").addEventListener("click", (e) => {
+  document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-open]");
-    if (b) openApp(b);
+    if (b) { e.preventDefault(); openApp(b.dataset.open, b); }
   });
-  $("cards").addEventListener("change", (e) => {
-    if (e.target.matches('.ticks input[type="checkbox"]')) toggleTask(e.target);
+  // Back from an app: reload so changes made there show up, and re-enable the buttons.
+  window.addEventListener("pageshow", (e) => {
+    if (!e.persisted || !me) return;
+    document.querySelectorAll(".chip.busy").forEach((c) => c.classList.remove("busy"));
+    document.querySelectorAll("[data-open]").forEach((b) => (b.disabled = false));
+    if (!$("home-view").classList.contains("hidden")) loadHome();
   });
-  // Back from an app: reload the cards so changes made there show up, and re-enable the buttons.
-  window.addEventListener("pageshow", (e) => { if (e.persisted && me && !$("home-view").classList.contains("hidden")) loadHome(); });
+
+  // ---------- home ----------
+  const LIST_CAP = 40;   // rows rendered per list before fitting; the rest only count towards "more"
+  const FIT = window.matchMedia("(min-width: 1000px) and (min-height: 600px)");
+
+  function areaShell(k, sum, body, foot) {
+    return '<section class="area" data-app="' + k + '" id="area-' + k + '" style="--i:' + APPS[k].ink + '" aria-labelledby="h-' + k + '">' +
+      '<div class="area-head"><h2 id="h-' + k + '">' + areaTitle(k) + '</h2><span class="sum" id="sum-' + k + '">' + sum + "</span>" +
+      '<button type="button" class="link open" data-open="' + k + '">Open ' + APPS[k].name + "</button></div>" +
+      '<p class="area-err" role="alert"></p><div class="area-body">' + body + "</div>" + (foot ? '<div class="area-foot">' + foot + "</div>" : "") + "</section>";
+  }
+  function areaTitle(k) {
+    if (k === "dpr") return home && home.dpr && !home.dpr.statuses ? "Cheques" : "Customer dues";
+    return { tasks: "Tasks", csrc: "Calls today", coverage: "Over-supplied toner" }[k];
+  }
+  // Grid placement: the first area runs the full height on the left; DPR's swatch deck leads on the right.
+  function layout(keys) {
+    const a = keys.includes("tasks") ? "tasks" : keys.includes("csrc") ? "csrc" : keys[0];
+    const rest = keys.filter((k) => k !== a).sort((x, y) => (x === "dpr" ? -1 : y === "dpr" ? 1 : 0));
+    const placed = [a, ...rest], names = "abcd";
+    const v = { cols: "minmax(0,1fr)", rows: "minmax(0,1fr)", areas: '"a"' };
+    const deckTop = rest[0] === "dpr" && home.dpr && home.dpr.statuses;
+    if (placed.length === 2) Object.assign(v, { cols: "minmax(0,1fr) minmax(0,1.5fr)", areas: '"a b"' });
+    if (placed.length === 3) Object.assign(v, { cols: "minmax(0,1fr) minmax(0,1.5fr)", areas: '"a b" "a c"',
+      rows: deckTop ? "auto minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)" });
+    if (placed.length === 4) Object.assign(v, { cols: "minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr)", areas: '"a b b" "a c d"',
+      rows: deckTop ? "auto minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)" });
+    const el = $("areas");
+    el.style.setProperty("--cols", v.cols); el.style.setProperty("--rows", v.rows); el.style.setProperty("--areas", v.areas);
+    return placed.map((k, i) => [k, names[i]]);
+  }
+
+  function renderSkeletons() {
+    const keys = myApps();
+    if (!keys.length) {
+      $("areas").innerHTML = '<section class="area" style="--i:var(--k)"><p class="empty-note" style="padding:18px">You don\'t have any apps yet. Ask an admin to add you.</p></section>';
+      return;
+    }
+    $("areas").innerHTML = keys.map((k) => '<section class="area" style="--i:' + APPS[k].ink + '"><div class="area-head"><h2>' + APPS[k].name + '</h2><span class="sum">Loading…</span></div></section>').join("");
+  }
+  async function loadHome() {
+    $("home-msg").innerHTML = "";
+    if (!home) renderSkeletons();
+    if (!myApps().length) return;
+    const { data, error } = await sb.rpc("portal_home");
+    if (error || !data) {
+      $("home-msg").innerHTML = 'Couldn\'t load today\'s work. <button type="button" class="link" id="home-retry">Try again</button>';
+      $("home-retry").addEventListener("click", loadHome);
+      return;
+    }
+    home = data;
+    renderHome();
+  }
+  function renderHome() {
+    const keys = myApps().filter((k) => home[k]);
+    const placed = layout(keys);
+    $("areas").innerHTML = placed.map(([k]) => ({ tasks: tasksArea, csrc: csrcArea, dpr: dprArea, coverage: coverageArea })[k](home[k])).join("");
+    placed.forEach(([k, n]) => $("area-" + k).style.setProperty("--ga", n));
+    if (!fanned) { const d = $("areas").querySelector(".deck"); if (d) d.classList.add("fan"); fanned = true; }
+    fitLists();
+    buildIndex();
+  }
+
+  // A "more" line counts rows not shown: ones never rendered (data-base) plus ones hidden to fit.
+  const moreBtn = (k, base) => '<button type="button" class="more" data-open="' + k + '" data-base="' + base + '" hidden></button>';
+  const MORE_TEXT = {
+    tasks: (n) => plural(n, "more task", "more tasks") + " in Tasks",
+    csrc: (n) => plural(n, "more call", "more calls") + " in CSRC",
+    coverage: (n) => plural(n, "more customer", "more customers") + " in Coverage",
+  };
+  function fitLists() {
+    for (const area of $("areas").querySelectorAll(".area[data-app]")) {
+      const body = area.querySelector(".area-body"), more = body.querySelector(".more");
+      const items = [...body.querySelectorAll(".fit")];
+      if (!items.length) continue;
+      items.forEach((i) => (i.hidden = false));
+      let hidden = 0;
+      const update = () => {
+        if (more) {
+          const n = Number(more.dataset.base) + hidden;
+          more.hidden = n === 0;
+          more.textContent = n ? MORE_TEXT[area.dataset.app](n) : "";
+        }
+        body.querySelectorAll(".fit-group").forEach((g) => (g.hidden = !g.querySelector(".fit:not([hidden])")));
+      };
+      update();
+      if (!FIT.matches || !document.body.classList.contains("fit")) continue;
+      for (let i = items.length - 1; i >= 1 && body.scrollHeight > body.clientHeight + 1; i--) {
+        items[i].hidden = true; hidden++; update();
+      }
+    }
+  }
+  window.addEventListener("resize", debounce(() => { if (home && !$("home-view").classList.contains("hidden")) fitLists(); }, 120));
+
+  // ----- Tasks: today first, then late; tick to send for approval, with undo -----
+  function taskState(t) {
+    const { late, due, waiting } = TS.today(t.tasks, t.completions, home.today);
+    return { late: late.slice().sort((a, b) => (a.due < b.due ? 1 : -1)), due, waiting };
+  }
+  function taskMeta(o, isLate) {
+    const ret = o.completion && o.completion.status === "returned";
+    if (ret) return "Sent back" + (o.completion.admin_note ? ": " + o.completion.admin_note : "");
+    const co = o.task.company ? o.task.company : "";
+    if (isLate) return [co, "was due " + TS.fmtBS(o.due, false)].filter(Boolean).join(" · ");
+    return [co, o.due > home.today ? "due by " + TS.fmtBS(o.due, false) : ""].filter(Boolean).join(" · ");
+  }
+  function taskRow(o, isLate) {
+    const days = TS.diffDays(home.today, o.due), meta = taskMeta(o, isLate);
+    return '<li class="fit"><label class="row tick" data-key="' + esc(o.task.id + "|" + o.due) + '">' +
+      '<input type="checkbox" data-task="' + esc(o.task.id) + '" data-due="' + o.due + '" aria-describedby="m-' + esc(o.task.id) + o.due + '">' +
+      '<span class="t"><span>' + esc(o.task.name) + '</span><small id="m-' + esc(o.task.id) + o.due + '" data-meta="' + esc(meta) + '">' + esc(meta) + "</small></span>" +
+      (isLate ? '<span class="late-mark">' + plural(days, "day", "days") + " late</span>" : "") + "</label></li>";
+  }
+  function tasksArea(t) {
+    const { late, due, waiting } = taskState(t);
+    const open = late.length + due.length;
+    const shownDue = due.slice(0, LIST_CAP), shownLate = late.slice(0, Math.max(0, LIST_CAP - shownDue.length));
+    let body = "";
+    if (!open) body = '<p class="empty-note">' + (waiting.length ? "Everything is ticked off. " : "Nothing is due. ") + "Open Tasks to see the week ahead.</p>";
+    else {
+      if (shownDue.length) body += '<div class="fit-group"><p class="group">Today</p><ul class="rows">' + shownDue.map((o) => taskRow(o, false)).join("") + "</ul></div>";
+      if (shownLate.length) body += '<div class="fit-group"><p class="group">Late</p><ul class="rows">' + shownLate.map((o) => taskRow(o, true)).join("") + "</ul></div>";
+      body += moreBtn("tasks", open - shownDue.length - shownLate.length);
+    }
+    const foot = '<span><b id="t-waiting">' + waiting.length + "</b> waiting for approval</span>" +
+      (t.is_admin && t.to_review != null ? "<span><b>" + t.to_review + "</b> for you to review</span>" : "");
+    tasksCounts = { open, late: late.length, waiting: waiting.length, ticked: 0, tickedLate: 0 };
+    paintTaskCounts();
+    return areaShell("tasks", taskSum(), body, foot);
+  }
+  let tasksCounts = null;
+  function taskSum() {
+    const c = tasksCounts, left = c.open - c.ticked, lateLeft = c.late - c.tickedLate;
+    if (!left) return "nothing left today";
+    return plural(left, "to do", "to do") + (lateLeft ? ", " + lateLeft + " late" : "");
+  }
+  function paintTaskCounts() {
+    const c = tasksCounts, left = c.open - c.ticked, lateLeft = c.late - c.tickedLate;
+    setChip("tasks", left ? left + " open" + (lateLeft ? ' · <span class="late">' + lateLeft + " late</span>" : "") : "All done");
+    if ($("sum-tasks")) $("sum-tasks").textContent = taskSum();
+    if ($("t-waiting")) $("t-waiting").textContent = c.waiting + c.ticked;
+  }
+  // Submit or withdraw one task occurrence. Updates the row if it is on screen.
+  async function setTask(taskId, due, on, opts) {
+    const label = $("areas").querySelector('.tick[data-key="' + CSS.escape(taskId + "|" + due) + '"]');
+    const box = label && label.querySelector("input"), small = label && label.querySelector("small");
+    const isLate = label && !!label.querySelector(".late-mark");
+    if (box) { box.checked = on; box.disabled = true; label.classList.add("saving"); }
+    try {
+      const { data, error } = await sb.rpc(on ? "portal_task_submit" : "portal_task_unsubmit", { p_task: taskId, p_due: due });
+      if (error) throw new Error(/assigned to someone|Already approved|can't be submitted/i.test(error.message) ? error.message : "Couldn't save. Check your connection and try again.");
+      if (!on && data === false) throw new Error("It has already been reviewed, so it can't be unticked here. Open Tasks.");
+      if (label) {
+        label.classList.toggle("done", on);
+        small.textContent = on ? "Sent for approval" : small.dataset.meta;
+        small.classList.toggle("sent", on);
+      }
+      if (tasksCounts) { tasksCounts.ticked += on ? 1 : -1; if (isLate) tasksCounts.tickedLate += on ? 1 : -1; paintTaskCounts(); }
+      if (on && !(opts && opts.quiet)) toast("Sent for approval", () => setTask(taskId, due, false, { quiet: true }));
+      return true;
+    } catch (e) {
+      if (box) box.checked = !on;
+      if (label) { const err = label.closest(".area").querySelector(".area-err"); err.textContent = e.message; }
+      else toast(e.message);
+      return false;
+    } finally {
+      if (box) { box.disabled = false; label.classList.remove("saving"); }
+    }
+  }
+  $("areas").addEventListener("change", (e) => {
+    const box = e.target.closest('.tick input[type="checkbox"]');
+    if (box) { box.closest(".area").querySelector(".area-err").textContent = ""; setTask(box.dataset.task, box.dataset.due, box.checked); }
+  });
+
+  // ----- CSRC: today's calls; click one for its details -----
+  function csrcArea(c) {
+    // Time order; calls with no time go last.
+    const calls = (c.calls || []).sort((a, b) => (a.from || "99") < (b.from || "99") ? -1 : (a.from || "99") > (b.from || "99") ? 1 : 0);
+    const done = calls.filter((x) => x.status === "completed").length;
+    const sum = calls.length ? plural(calls.length, "call", "calls") + ", " + done + " done" : "none booked";
+    setChip("csrc", calls.length ? plural(calls.length - done, "call", "calls") + " left" : "No calls");
+    const shown = calls.slice(0, LIST_CAP);
+    const body = shown.length ? '<ul class="rows">' + shown.map((x, i) =>
+      '<li class="fit"><button type="button" class="row" data-call="' + i + '"><span class="time">' + (hhmm(x.from) || "–") + "</span>" +
+      '<span class="t"><span>' + esc(x.customer) + "</span><small>" + (x.type === "SCH" ? "Scheduled" : "On call") + " · " +
+      esc(x.engineers || "No engineer assigned") + "</small></span>" +
+      (x.status === "completed" ? '<span class="tag ok">Done</span>' : "") + "</button></li>").join("") + "</ul>" + moreBtn("csrc", calls.length - shown.length)
+      : '<p class="empty-note">' + (c.role === "manager" ? "No calls are booked for today." : "You have no calls today.") + "</p>";
+    const foot = [];
+    if (c.overdue_calls) foot.push('<span class="' + (c.overdue_calls ? "" : "") + '"><b>' + c.overdue_calls + "</b> earlier " + (c.overdue_calls === 1 ? "call" : "calls") + " still open</span>");
+    if (c.visits_due != null) foot.push("<span><b>" + c.visits_due + "</b> due a scheduled visit</span>");
+    return areaShell("csrc", sum, body, foot.join(""));
+  }
+  function callPanel(x) {
+    const time = x.from ? hhmm(x.from) + (x.to ? "–" + hhmm(x.to) : "") : "Not set";
+    const done = x.status === "completed";
+    openPanel(esc(x.customer), "var(--c)",
+      '<dl class="facts"><dt>Status</dt><dd' + (done ? ' style="color:var(--ok);font-weight:600"' : "") + ">" + (done ? "Done" : "Booked") + "</dd>" +
+      "<dt>Visit</dt><dd>" + (x.type === "SCH" ? "Scheduled visit" : "On call") + "</dd>" +
+      "<dt>Time</dt><dd>" + esc(time) + "</dd>" +
+      "<dt>Engineers</dt><dd>" + esc(x.engineers || "No engineer assigned") + "</dd>" +
+      (x.problem ? "<dt>Problem</dt><dd>" + esc(x.problem) + "</dd>" : "") +
+      (x.address ? "<dt>Address</dt><dd>" + esc(x.address) + "</dd>" : "") +
+      (x.contact ? "<dt>Contact</dt><dd>" + esc(x.contact) + "</dd>" : "") +
+      (x.phone ? '<dt>Phone</dt><dd><a href="tel:' + esc(String(x.phone).replace(/[^\d+]/g, "")) + '">' + esc(x.phone) + "</a></dd>" : "") +
+      '</dl><div class="actions"><button type="button" class="btn" data-open="csrc">Open in CSRC</button></div>');
+  }
+
+  // ----- DPR: statuses as swatches; each opens its customers -----
+  function dprArea(d) {
+    const asOf = d.report_date ? "report of " + TS.fmtAD(d.report_date, false) : "";
+    const ch = d.cheques;
+    const chequeFoot = ch ? '<button type="button" class="fig' + (ch.overdue ? " bad" : "") + '" data-cheques="overdue"><b>' + ch.overdue + "</b> " + (ch.overdue === 1 ? "cheque" : "cheques") + " overdue</button>" +
+      '<button type="button" class="fig" data-cheques="today"><b>' + ch.today + '</b> due today</button><button type="button" class="fig" data-cheques="tomorrow"><b>' + ch.tomorrow + "</b> tomorrow</button>" : "";
+    if (!d.statuses) {   // PDC-only access: cheques are the whole story
+      setChip("dpr", plural(ch.overdue + ch.today, "cheque", "cheques") + " due");
+      return areaShell("dpr", asOf, '<p class="empty-note">Pick a figure below to see the cheques.</p>', chequeFoot);
+    }
+    const by = new Map(d.statuses.map((s) => [s.status, s]));
+    const rows = STATUSES.map(([status, ink, what]) => ({ status, ink, what, n: (by.get(status) || {}).n || 0, due: (by.get(status) || {}).due || 0 }));
+    const total = rows.reduce((s, r) => s + r.n, 0);
+    const red = rows.slice(0, 4).reduce((s, r) => s + r.n, 0);    // Black, Gray, Blue, Red: past terms
+    setChip("dpr", red ? red + " past terms" : plural(total, "customer", "customers"));
+    const deck = '<div class="deck">' + rows.map((x, i) =>
+      '<button type="button" class="sw' + (x.n ? "" : " zero") + '" data-status="' + x.status + '" aria-pressed="false" style="--s:' + x.ink + ";--n:" + i + '"' +
+      (x.n ? "" : " disabled") + ' aria-label="' + x.status + ": " + plural(x.n, "customer", "customers") + ", Rs " + short(x.due) + ". " + x.what + '">' +
+      "<i></i><span><b>" + x.n + "</b><small>" + x.status + "</small><small>" + (x.n ? "Rs " + short(x.due) : "–") + "</small></span></button>").join("") + "</div>";
+    const sum = plural(total, "customer", "customers") + (d.role === "agent" && d.agent ? " of " + esc(d.agent) : "") + (asOf ? ", " + asOf : "");
+    return areaShell("dpr", sum, deck, chequeFoot);
+  }
+  function reason(c) {
+    switch (c.status) {
+      case "Black": return plural(c.overdue_pdc_count, "cheque", "cheques") + " past due date, and Rs " + money(c.net_over_credit_30) + " past credit + 30 days not covered by PDC.";
+      case "Gray": return plural(c.overdue_pdc_count, "cheque", "cheques") + " past due date.";
+      case "Blue": return "Rs " + money(c.net_over_credit_30) + " past credit + 30 days not covered by PDC.";
+      case "Red": return "Rs " + money(c.net_over_credit) + " past credit days not covered by PDC.";
+      case "Yellow": return "PDC covers overdue bills, but the oldest bill is " + c.lbp + " days old (credit " + c.credit_days + " days).";
+      default: return Number(c.total_due) <= 2500 ? "Dues are Rs 2,500 or less." : "Within credit terms.";
+    }
+  }
+  function customerTable(list, back) {
+    const total = list.reduce((s, c) => s + Number(c.total_due || 0), 0);
+    return "<table><thead><tr><th>Customer</th><th class=\"n\">Due (Rs)</th><th class=\"n hide-sm\">Oldest bill</th></tr></thead><tbody>" +
+      list.map((c, i) => '<tr class="pick" data-cust="' + i + '" tabindex="0"><td>' + (back ? "" : "") + esc(c.name) + (c.agent ? '<span class="sub muted" style="display:block;font-size:13px">' + esc(c.agent) + "</span>" : "") +
+        '</td><td class="n">' + money(c.total_due) + '</td><td class="n hide-sm">' + (c.lbp != null ? plural(c.lbp, "day", "days") : "–") + "</td></tr>").join("") +
+      '</tbody><tfoot><tr class="tot"><td>' + plural(list.length, "customer", "customers") + '</td><td class="n">' + money(total) + '</td><td class="hide-sm"></td></tr></tfoot></table>';
+  }
+  async function statusPanel(status, sw) {
+    document.querySelectorAll(".sw").forEach((s) => s.setAttribute("aria-pressed", String(s === sw)));
+    const what = STATUSES.find((s) => s[0] === status)[2];
+    const body = openPanel(status + " customers", INK_OF[status], '<p class="loading">Loading customers…</p>', () =>
+      document.querySelectorAll(".sw").forEach((s) => s.setAttribute("aria-pressed", "false")));
+    try {
+      const list = await rpc("portal_dpr_customers", { p_status: status, p_query: null });
+      if (!panelIs(body)) return;
+      body.innerHTML = '<p class="why"><i class="dot" style="--i:' + INK_OF[status] + '"></i>' + esc(what) + ". Largest dues first.</p>" +
+        (list.length ? customerTable(list) : '<p class="empty-note">No customers in this status.</p>') +
+        '<div class="actions"><button type="button" class="btn" data-open="dpr">Open DPR</button></div>';
+      wirePick(body, "cust", (i) => customerPanel(list[i], () => statusPanel(status, sw)));
+    } catch (e) { if (panelIs(body)) body.innerHTML = '<p class="msg error">' + esc(e.message) + "</p>"; }
+  }
+  function customerPanel(c, back) {
+    openPanel(esc(c.name), INK_OF[c.status] || "var(--y)",
+      (back ? '<button type="button" class="link" id="p-back">Back to the list</button>' : "") +
+      '<p class="why"><i class="dot" style="--i:' + (INK_OF[c.status] || "var(--g)") + '"></i><b>' + esc(c.status) + ".</b> " + esc(reason(c)) + "</p>" +
+      '<dl class="facts"><dt>Total due</dt><dd>Rs ' + money(c.total_due) + "</dd>" +
+      "<dt>PDC held</dt><dd>Rs " + money(c.total_pdc) + "</dd>" +
+      "<dt>Past credit</dt><dd" + (Number(c.net_over_credit) > 0 ? ' class="bad"' : "") + ">Rs " + money(c.net_over_credit) + " not covered</dd>" +
+      "<dt>Past credit + 30</dt><dd" + (Number(c.net_over_credit_30) > 0 ? ' class="bad"' : "") + ">Rs " + money(c.net_over_credit_30) + " not covered</dd>" +
+      "<dt>Oldest bill</dt><dd>" + (c.lbp != null ? plural(c.lbp, "day", "days") + " old" : "–") + "</dd>" +
+      "<dt>Credit</dt><dd>" + (c.credit_days != null ? plural(c.credit_days, "day", "days") : "–") + "</dd>" +
+      (c.overdue_pdc_count ? "<dt>Cheques late</dt><dd class=\"bad\">" + c.overdue_pdc_count + "</dd>" : "") +
+      (c.agent ? "<dt>Agent</dt><dd>" + esc(c.agent) + "</dd>" : "") +
+      "<dt>Code</dt><dd>" + esc(c.gl_code) + "</dd></dl>" +
+      '<div class="actions"><button type="button" class="btn" data-open="dpr">Open DPR</button></div>');
+    if (back) $("p-back").addEventListener("click", back);
+  }
+  async function chequePanel(kind) {
+    const title = { overdue: "Overdue cheques", today: "Cheques due today", tomorrow: "Cheques due tomorrow" }[kind];
+    const body = openPanel(title, "var(--y)", '<p class="loading">Loading cheques…</p>');
+    try {
+      const list = await rpc("portal_dpr_cheques", { p_when: kind });
+      if (!panelIs(body)) return;
+      const total = list.reduce((s, c) => s + Number(c.amount || 0), 0);
+      body.innerHTML = list.length
+        ? "<table><thead><tr><th>Customer</th><th class=\"hide-sm\">Cheque</th><th>Date</th><th class=\"n\">Amount (Rs)</th></tr></thead><tbody>" +
+          list.map((c) => "<tr><td>" + esc(c.customer) + '</td><td class="hide-sm">' + esc(c.cheque_no || "–") + "</td><td>" + (c.cheque_date ? TS.fmtAD(c.cheque_date, false) : "–") +
+            '</td><td class="n">' + money(c.amount) + "</td></tr>").join("") +
+          '</tbody><tfoot><tr class="tot"><td>' + plural(list.length, "cheque", "cheques") + '</td><td class="hide-sm"></td><td></td><td class="n">' + money(total) + "</td></tr></tfoot></table>" +
+          '<div class="actions"><button type="button" class="btn" data-open="dpr">Open DPR</button></div>'
+        : '<p class="empty-note">No cheques here.</p>';
+    } catch (e) { if (panelIs(body)) body.innerHTML = '<p class="msg error">' + esc(e.message) + "</p>"; }
+  }
+
+  // ----- Coverage: cost centres sent more toner than their usage explains -----
+  let covGroups = { red: [], watch: [] };
+  function coverageArea(c) {
+    const groups = new Map();
+    for (const r of c.rows || []) {
+      const g = groups.get(r.cost_centre) || { name: r.cost_centre.replace(/^KM\s*-\s*/i, ""), rows: [], red: [], excess: 0 };
+      g.rows.push(r);
+      if (r.status === "RED") { g.red.push(r); g.excess += Number(r.excess); }
+      groups.set(r.cost_centre, g);
+    }
+    const red = [...groups.values()].filter((g) => g.red.length).sort((a, b) => b.excess - a.excess);
+    const watch = [...groups.values()].filter((g) => !g.red.length);
+    covGroups = { red, watch };
+    setChip("coverage", red.length ? plural(red.length, "customer", "customers") + " over" : "All in line");
+    const cut = c.cutoff ? "issued up to " + TS.fmtAD(c.cutoff, false) : "";
+    const shown = red.slice(0, LIST_CAP);
+    const body = shown.length ? '<ul class="rows">' + shown.map((g, i) =>
+      '<li class="fit"><button type="button" class="row" data-cc="' + i + '"><span class="t"><span>' + esc(g.name) + "</span><small>" +
+      plural(g.red.length, "part", "parts") + " over</small></span><span class=\"parts\">" +
+      g.red.slice().sort((a, b) => b.excess - a.excess).slice(0, 2).map((r) => '<span class="part">' + esc(r.part) + " <b>+" + num1(r.excess) + "</b></span>").join("") +
+      "</span></button></li>").join("") + "</ul>" + moreBtn("coverage", red.length - shown.length)
+      : '<p class="empty-note">Toner issued matches usage' + (cut ? ", " + cut : "") + ".</p>";
+    const foot = (watch.length ? '<button type="button" class="fig" data-watch="1"><b>' + watch.length + "</b> more to watch</button>" : "") +
+      "<span>FY " + esc(String(c.fy).replace("-", "/")) + (cut ? ", " + cut : "") + "</span>";
+    return areaShell("coverage", red.length ? plural(red.length, "customer", "customers") + " sent too much" : "nothing over", body, foot);
+  }
+  function ccPanel(g, back) {
+    const rows = g.rows.slice().sort((a, b) => b.excess - a.excess);
+    const max = Math.max(1, ...rows.map((r) => Math.max(Number(r.issued), Number(r.expected))));
+    openPanel(esc(g.name), "var(--g)",
+      (back ? '<button type="button" class="link" id="p-back">Back to the list</button>' : "") +
+      '<p class="why">Toner sent compared with what the machines\' readings say they used.</p>' +
+      '<div class="legend"><span><i style="background:var(--g);opacity:.55"></i>Used</span><span><i style="border:2px solid var(--bad)"></i>Sent</span></div>' +
+      '<div class="bars">' + rows.map((r) => '<div class="b"><span>' + esc(r.part) + '</span><span class="track" title="' + esc(r.part + ": " + r.issued + " sent, " + num1(r.expected) + " used") + '">' +
+        '<i class="used" style="width:' + (Number(r.expected) / max * 100).toFixed(1) + '%"></i><i class="sent" style="width:' + (Number(r.issued) / max * 100).toFixed(1) + '%"></i></span>' +
+        '<span class="' + (r.status === "RED" ? "tag bad" : "") + '" style="text-align:right">+' + num1(r.excess) + "</span></div>").join("") + "</div>" +
+      "<table><thead><tr><th>Part</th><th class=\"n\">Sent</th><th class=\"n\">Used</th><th class=\"n\">Over</th></tr></thead><tbody>" +
+      rows.map((r) => "<tr><td>" + esc(r.part) + (r.status === "RED" ? "" : ' <span class="muted">(watch)</span>') + '</td><td class="n">' + num1(r.issued) + '</td><td class="n">' + num1(r.expected) +
+        '</td><td class="n' + (r.status === "RED" ? " " : "") + '">' + (r.status === "RED" ? '<b style="color:var(--bad)">+' + num1(r.excess) + "</b>" : "+" + num1(r.excess)) + "</td></tr>").join("") + "</tbody></table>" +
+      '<div class="actions"><button type="button" class="btn" data-open="coverage">Open Coverage</button></div>');
+    if (back) $("p-back").addEventListener("click", back);
+  }
+  function watchPanel() {
+    const list = covGroups.watch;
+    const body = openPanel("To watch", "var(--g)",
+      '<p class="why">Cost centres close to the limit: sent a little more than usage explains, but within the allowance.</p>' +
+      "<table><thead><tr><th>Cost centre</th><th class=\"n\">Parts</th></tr></thead><tbody>" +
+      list.map((g, i) => '<tr class="pick" data-w="' + i + '" tabindex="0"><td>' + esc(g.name) + '</td><td class="n">' + g.rows.length + "</td></tr>").join("") + "</tbody></table>");
+    wirePick(body, "w", (i) => ccPanel(list[i], watchPanel));
+  }
+
+  // Clicks inside the work areas
+  $("areas").addEventListener("click", (e) => {
+    const t = e.target;
+    const call = t.closest("[data-call]"); if (call) return callPanel(home.csrc.calls[Number(call.dataset.call)]);
+    const sw = t.closest(".sw[data-status]"); if (sw && !sw.disabled) return statusPanel(sw.dataset.status, sw);
+    const chq = t.closest("[data-cheques]"); if (chq) return chequePanel(chq.dataset.cheques);
+    const cc = t.closest("[data-cc]"); if (cc) return ccPanel(covGroups.red[Number(cc.dataset.cc)]);
+    if (t.closest("[data-watch]")) return watchPanel();
+  });
+
+  // ---------- drill-down panel ----------
+  let panelOpener = null, panelOnClose = null, panelToken = 0;
+  function openPanel(title, band, html, onClose) {
+    if ($("panel").hidden) panelOpener = document.activeElement;
+    if (panelOnClose && panelOnClose !== onClose) { const f = panelOnClose; panelOnClose = null; f(); }
+    panelOnClose = onClose || null;
+    $("panel-title").innerHTML = title;
+    $("panel").querySelector(".panel-head").style.setProperty("--band", band);
+    $("edit").classList.add("hidden");
+    const body = $("panel-body");
+    body.classList.remove("hidden");
+    body.innerHTML = html;
+    body.scrollTop = 0;
+    body.dataset.token = String(++panelToken);
+    $("panel").hidden = false;
+    $("scrim").classList.remove("hidden");
+    $("panel-close").focus({ preventScroll: true });
+    return body;
+  }
+  const panelIs = (body) => !$("panel").hidden && body.dataset.token === String(panelToken);
+  function closePanel() {
+    if ($("panel").hidden) return;
+    $("panel").hidden = true;
+    $("scrim").classList.add("hidden");
+    panelToken++;
+    if (panelOnClose) { const f = panelOnClose; panelOnClose = null; f(); }
+    editing = null;
+    if (panelOpener && document.contains(panelOpener)) panelOpener.focus({ preventScroll: true });
+    panelOpener = null;
+  }
+  function wirePick(body, key, fn) {
+    body.querySelectorAll("tr.pick[data-" + key + "]").forEach((tr) => {
+      const go = () => fn(Number(tr.dataset[key]));
+      tr.addEventListener("click", go);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    });
+  }
+  $("panel-close").addEventListener("click", closePanel);
+  $("scrim").addEventListener("click", closePanel);
+  // Keep keyboard focus inside the open panel.
+  $("panel").addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const f = [...$("panel").querySelectorAll('button, a[href], input, select, tr[tabindex]')].filter((el) => !el.disabled && el.offsetParent);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+
+  // ---------- toast with undo ----------
+  let toastTimer = 0, toastUndo = null;
+  function toast(text, undo) {
+    clearTimeout(toastTimer);
+    $("toast-text").textContent = text;
+    toastUndo = undo || null;
+    $("toast-undo").hidden = !undo;
+    $("toast").classList.remove("hidden");
+    toastTimer = setTimeout(() => $("toast").classList.add("hidden"), undo ? 7000 : 5000);
+  }
+  $("toast-undo").addEventListener("click", () => {
+    const f = toastUndo; toastUndo = null;
+    $("toast").classList.add("hidden");
+    if (f) f();
+  });
+
+  // ---------- search: everything on today's page, plus DPR customers ----------
+  let index = [], results = [], sel = -1;
+  function buildIndex() {
+    index = [];
+    if (home.tasks) {
+      const { late, due } = taskState(home.tasks);
+      for (const o of [...due, ...late]) index.push({ app: "tasks", text: o.task.name + " " + (o.task.company || ""), label: o.task.name,
+        hint: late.includes(o) ? "Late" : "Today", go: () => taskPanel(o, late.includes(o)) });
+    }
+    if (home.csrc) (home.csrc.calls || []).forEach((x) => index.push({ app: "csrc", text: x.customer + " " + (x.engineers || "") + " " + (x.address || ""),
+      label: x.customer, hint: (hhmm(x.from) || "") + (x.engineers ? " · " + x.engineers : ""), go: () => callPanel(x) }));
+    if (home.coverage) [...covGroups.red, ...covGroups.watch].forEach((g) => index.push({ app: "coverage", text: g.name + " " + g.rows.map((r) => r.part).join(" "),
+      label: g.name, hint: g.red.length ? "Over-supplied" : "To watch", go: () => ccPanel(g) }));
+  }
+  function taskPanel(o, isLate) {
+    const label = $("areas").querySelector('.tick[data-key="' + CSS.escape(o.task.id + "|" + o.due) + '"]');
+    const sent = label && label.classList.contains("done");
+    openPanel(esc(o.task.name), "var(--m)",
+      '<dl class="facts"><dt>Due</dt><dd' + (isLate ? ' class="bad"' : "") + ">" + esc(TS.fmtBS(o.due)) + (isLate ? ", " + plural(TS.diffDays(home.today, o.due), "day", "days") + " late" : "") + "</dd>" +
+      (o.task.company ? "<dt>Company</dt><dd>" + esc(o.task.company) + "</dd>" : "") +
+      "<dt>Status</dt><dd id=\"p-task-state\">" + (sent ? "Sent for approval" : esc(taskMeta(o, isLate).split(" · ").pop() || "To do")) + "</dd></dl>" +
+      '<div class="actions">' + (sent ? "" : '<button type="button" class="btn" id="p-task-go" style="--i:var(--m)">Send for approval</button>') +
+      '<button type="button" class="btn quiet" data-open="tasks">Open Tasks</button></div>');
+    const go = $("p-task-go");
+    if (go) go.addEventListener("click", async () => {
+      go.disabled = true;
+      if (await setTask(o.task.id, o.due, true)) { $("p-task-state").textContent = "Sent for approval"; go.remove(); } else go.disabled = false;
+    });
+  }
+  const dprSearch = debounce(async (q, token) => {
+    if (!home || !home.dpr || !home.dpr.statuses || q.length < 2) return;
+    try {
+      const list = await rpc("portal_dpr_customers", { p_status: null, p_query: q });
+      if (token !== searchToken) return;
+      results = results.filter((r) => r.app !== "dpr").concat(list.map((c) => ({ app: "dpr", label: c.name, hint: c.status + " · Rs " + short(c.total_due), go: () => customerPanel(c) })));
+      paintResults(q, false);
+    } catch (e) { /* local results stay */ }
+  }, 220);
+  let searchToken = 0;
+  function runSearch() {
+    const q = $("search").value.trim();
+    searchToken++;
+    if (!q) { closeResults(); return; }
+    const words = q.toLowerCase().split(/\s+/);
+    results = index.filter((r) => words.every((w) => r.text.toLowerCase().includes(w))).slice(0, 12);
+    sel = results.length ? 0 : -1;
+    const waitingDpr = home && home.dpr && home.dpr.statuses && q.length >= 2;
+    paintResults(q, waitingDpr);
+    if (waitingDpr) dprSearch(q, searchToken);
+  }
+  function paintResults(q, pending) {
+    const box = $("search-results");
+    const groups = ORDER.map((k) => [k, results.filter((r) => r.app === k)]).filter(([, l]) => l.length);
+    let i = 0;
+    box.innerHTML = groups.map(([k, list]) => "<p>" + (k === "dpr" ? "DPR customers" : APPS[k].name) + "</p>" + list.map((r) =>
+      '<button type="button" class="opt" role="option" id="opt-' + i + '" data-i="' + (i++) + '" aria-selected="false"><i class="dot" style="--i:' + APPS[k].ink + '"></i><span>' +
+      esc(r.label) + "</span><small>" + esc(r.hint || "") + "</small></button>").join("")).join("") +
+      (pending ? '<p class="empty">Searching DPR…</p>' : !results.length ? '<p class="empty">Nothing matches “' + esc(q) + "”.</p>" : "");
+    results = groups.flatMap(([, l]) => l);
+    if (sel >= results.length) sel = results.length - 1;
+    if (sel < 0 && results.length) sel = 0;
+    box.classList.remove("hidden");
+    $("search").closest(".search").setAttribute("aria-expanded", "true");
+    markSel();
+  }
+  function markSel() {
+    $("search-results").querySelectorAll(".opt").forEach((o) => o.setAttribute("aria-selected", String(Number(o.dataset.i) === sel)));
+    $("search").setAttribute("aria-activedescendant", sel >= 0 ? "opt-" + sel : "");
+    const cur = $("opt-" + sel); if (cur) cur.scrollIntoView({ block: "nearest" });
+  }
+  function closeResults() {
+    $("search-results").classList.add("hidden");
+    $("search").closest(".search").setAttribute("aria-expanded", "false");
+  }
+  function choose(i) {
+    const r = results[i];
+    if (!r) return;
+    closeResults();
+    $("search").blur();
+    r.go();
+  }
+  $("search").addEventListener("input", runSearch);
+  $("search").addEventListener("focus", () => { if ($("search").value.trim()) runSearch(); });
+  $("search").addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); if (results.length) { sel = (sel + 1) % results.length; markSel(); } }
+    else if (e.key === "ArrowUp") { e.preventDefault(); if (results.length) { sel = (sel - 1 + results.length) % results.length; markSel(); } }
+    else if (e.key === "Enter") { e.preventDefault(); choose(sel); }
+    else if (e.key === "Escape") { $("search").value = ""; closeResults(); $("search").blur(); }
+  });
+  $("search-results").addEventListener("mousedown", (e) => e.preventDefault());
+  $("search-results").addEventListener("click", (e) => { const o = e.target.closest(".opt"); if (o) choose(Number(o.dataset.i)); });
+  $("search").addEventListener("blur", () => setTimeout(closeResults, 100));
+
+  // Keyboard: / to search, Esc to close.
+  document.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (e.key === "/" && !typing && !$("home-view").classList.contains("hidden") && $("panel").hidden) { e.preventDefault(); $("search").focus(); }
+    else if (e.key === "Escape" && !$("panel").hidden) { e.preventDefault(); closePanel(); }
+  });
 
   // ---------- settings: password ----------
   $("pw-form").addEventListener("submit", async (e) => {
@@ -445,45 +742,35 @@
 
   // ---------- admin: people ----------
   async function loadPeople() {
-    $("people-msg").textContent = roster ? "" : "Loading…";
+    $("people-msg").className = "msg";
+    if (!roster) $("people").innerHTML = '<p class="empty">Loading people…</p>';
     try {
       roster = await callFn("portal-admin", { action: "list" });
-      $("people-msg").textContent = "";
       renderPeople();
     } catch (e) { $("people-msg").className = "msg error"; $("people-msg").textContent = e.message; }
   }
   function acctLabel(list, id) {
     const a = (list || []).find((x) => x.id === id);
-    return a ? a.username + " · " + cap(a.role) + (a.active ? "" : " (inactive)") : null;
-  }
-  function covLabel(username) {
-    const a = ((roster && roster.coverage_accounts) || []).find((x) => x.username === username);
-    return username + (a && !a.active ? " (inactive)" : "");
-  }
-  function accessLine(ink, name, text) {
-    return '<div class="access' + (text ? "" : " none") + '"><span class="sw" style="--c:' + ink + '"></span>' +
-      name + (text ? ": " + esc(text) : ": no access") + "</div>";
+    return a ? a.username + ", " + a.role + (a.active ? "" : ", inactive") : null;
   }
   function renderPeople() {
-    const rows = roster.users;
-    $("people").innerHTML = '<table><thead><tr><th>Person</th><th>Apps</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead><tbody>' +
+    const q = $("people-q").value.trim().toLowerCase();
+    const rows = roster.users.filter((u) => !q || (u.full_name + " " + u.username).toLowerCase().includes(q));
+    const access = (ink, name, text) => text ? '<span class="acc" style="display:block;font-size:14px"><i class="dot" style="--i:' + ink + '"></i>' + name +
+      ' <span class="muted">' + esc(text) + "</span></span>" : "";
+    $("people").innerHTML = rows.length ? '<table><thead><tr><th>Person</th><th>Apps</th><th class="hide-sm">Last sign-in</th><th>Status</th></tr></thead><tbody>' +
       rows.map((u) => {
-        const dpr = u.dpr_role ? (u.dpr_role === "agent" ? "Agent " + u.dpr_agent_name : DPR_LABEL[u.dpr_role]) +
-          (u.dpr_can_export ? ", export" : "") : null;
-        const state = !u.active ? '<span class="state">Can\'t sign in</span>'
-          : !u.password_set ? '<span class="state warn">Needs password</span>'
-          : '<span class="state on">Active</span>';
-        return "<tr><td><strong>" + esc(u.full_name) + "</strong>" + (u.is_admin ? " · Admin" : "") +
-          '<span class="sub">' + esc(u.username) + "</span></td><td>" +
-          accessLine("var(--p-cyan)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
-          accessLine("var(--p-magenta)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) +
-          accessLine("var(--p-key)", "Coverage", u.coverage_user ? covLabel(u.coverage_user) : null) +
-          accessLine("var(--p-yellow)", "DPR", dpr) + "</td>" +
-          '<td class="num">' + (u.last_sign_in ? when(u.last_sign_in) : '<span class="none">Never</span>') + "</td>" +
-          "<td>" + state + "</td>" +
-          '<td><button type="button" class="btn secondary small" data-edit="' + u.id + '">Edit</button></td></tr>';
-      }).join("") + "</tbody></table>";
+        const dpr = u.dpr_role ? (u.dpr_role === "agent" ? "agent " + u.dpr_agent_name : DPR_LABEL[u.dpr_role].toLowerCase()) + (u.dpr_can_export ? ", export" : "") : null;
+        const cov = u.coverage_user ? u.coverage_user + (((roster.coverage_accounts || []).find((x) => x.username === u.coverage_user) || {}).active === false ? ", inactive" : "") : null;
+        const apps = access("var(--m)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) + access("var(--c)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
+          access("var(--y)", "DPR", dpr) + access("var(--g)", "Coverage", cov);
+        const state = !u.active ? '<span class="state">Can\'t sign in</span>' : !u.password_set ? '<span class="state warn">Needs a password</span>' : '<span class="state on">Active</span>';
+        return '<tr class="pick" data-edit="' + u.id + '" tabindex="0"><td><strong>' + esc(u.full_name) + "</strong>" + (u.is_admin ? " · Admin" : "") +
+          '<span class="sub">' + esc(u.username) + "</span></td><td>" + (apps || '<span class="muted">No apps</span>') + "</td>" +
+          '<td class="hide-sm">' + (u.last_sign_in ? when(u.last_sign_in) : '<span class="muted">Never</span>') + "</td><td>" + state + "</td></tr>";
+      }).join("") + "</tbody></table>" : '<p class="empty">Nobody matches “' + esc(q) + "”.</p>";
   }
+  $("people-q").addEventListener("input", () => roster && renderPeople());
 
   function fillSelect(sel, list, linkedField, currentId) {
     const taken = new Set(roster.users.filter((u) => u.id !== editing && u[linkedField]).map((u) => u[linkedField]));
@@ -498,9 +785,8 @@
     const taken = new Set(roster.users.filter((u) => u.id !== editing && u.coverage_user).map((u) => u.coverage_user));
     $("e-coverage").innerHTML = '<option value="">No access</option>' + (roster.coverage_accounts || []).map((a) => {
       const other = taken.has(a.username);
-      return '<option value="' + esc(a.username) + '"' + (other ? " disabled" : "") + ">" +
-        esc((a.full_name || a.username) + " (" + a.username + ")") + (a.active ? "" : " – inactive") +
-        (other ? " – linked to someone else" : "") + "</option>";
+      return '<option value="' + esc(a.username) + '"' + (other ? " disabled" : "") + ">" + esc((a.full_name || a.username) + " (" + a.username + ")") +
+        (a.active ? "" : " – inactive") + (other ? " – linked to someone else" : "") + "</option>";
     }).join("");
     $("e-coverage").value = current || "";
   }
@@ -510,9 +796,11 @@
     $("e-export-wrap").classList.toggle("hidden", !r);
   }
   function openEditor(u) {
+    openPanel(u ? "Edit " + esc(u.full_name) : "Add person", "var(--k)", "");
     editing = u ? u.id : "";
+    $("panel-body").classList.add("hidden");
+    $("edit").classList.remove("hidden");
     const isSelf = u && u.id === me.id;
-    $("edit-title").textContent = u ? "Edit " + u.full_name : "Add person";
     $("e-name").value = u ? u.full_name : "";
     $("e-user").value = u ? u.username : "";
     $("e-pass").value = "";
@@ -526,33 +814,36 @@
     fillSelect($("e-tasks"), roster.task_accounts, "task_user_id", u && u.task_user_id);
     fillCoverage(u && u.coverage_user);
     $("e-dpr").value = (u && u.dpr_role) || "";
-    $("e-agent").innerHTML = '<option value="">Pick an agent</option>' +
-      roster.dpr_agents.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
+    $("e-agent").innerHTML = '<option value="">Pick an agent</option>' + roster.dpr_agents.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
     $("e-agent").value = (u && u.dpr_agent_name) || "";
     $("e-export").checked = !!(u && u.dpr_can_export);
     syncDprFields();
     $("e-msg").textContent = "";
-    $("edit").classList.remove("hidden");
-    $("edit").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("edit").scrollTop = 0;
     $("e-name").focus({ preventScroll: true });
   }
-  function closeEditor() { editing = null; $("edit").classList.add("hidden"); }
-
   $("add-person").addEventListener("click", () => roster && openEditor(null));
   $("people").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-edit]");
-    if (b) openEditor(roster.users.find((u) => u.id === b.dataset.edit));
+    const tr = e.target.closest("tr[data-edit]");
+    if (tr) openEditor(roster.users.find((u) => u.id === tr.dataset.edit));
+  });
+  $("people").addEventListener("keydown", (e) => {
+    const tr = e.target.closest("tr[data-edit]");
+    if (tr && e.key === "Enter") { e.preventDefault(); openEditor(roster.users.find((u) => u.id === tr.dataset.edit)); }
   });
   $("e-dpr").addEventListener("change", syncDprFields);
-  $("e-cancel").addEventListener("click", closeEditor);
+  $("e-cancel").addEventListener("click", closePanel);
   $("edit").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("e-msg");
     const pass = $("e-pass").value;
+    if (!$("e-name").value.trim()) { msg.textContent = "Add their full name."; $("e-name").focus(); return; }
+    if (!/^[a-z0-9._\-]{2,32}$/.test($("e-user").value.trim().toLowerCase())) { msg.textContent = "Usernames use 2 to 32 lowercase letters, numbers, dots or dashes."; $("e-user").focus(); return; }
     if (pass && pass.length < 8) { msg.textContent = "Passwords need at least 8 characters."; $("e-pass").focus(); return; }
+    if ($("e-dpr").value === "agent" && !$("e-agent").value) { msg.textContent = "Pick the agent whose customers they see."; $("e-agent").focus(); return; }
     const user = {
       id: editing || undefined,
-      full_name: $("e-name").value, username: $("e-user").value.trim().toLowerCase(),
+      full_name: $("e-name").value.trim(), username: $("e-user").value.trim().toLowerCase(),
       password: pass || undefined, active: $("e-active").checked, is_admin: $("e-admin").checked,
       csrc_user_id: $("e-csrc").value || null, task_user_id: $("e-tasks").value || null,
       coverage_user: $("e-coverage").value || null,
@@ -561,23 +852,21 @@
     $("e-save").disabled = true; msg.textContent = "";
     try {
       const { user: saved } = await callFn("portal-admin", { action: "save", user });
-      closeEditor();
-      $("people-msg").className = "msg ok";
-      $("people-msg").textContent = "Saved " + saved.full_name + "." +
-        (saved.password_set ? "" : " Set a password before they can sign in.");
+      closePanel();
+      toast("Saved " + saved.full_name + "." + (saved.password_set ? "" : " Set a password before they can sign in."));
       await loadPeople();
-      if (saved.id === me.id) { home = null; await enter(); }
+      if (saved.id === me.id) { home = null; await enter(); location.hash = "#/admin"; }
     } catch (ex) { msg.textContent = ex.message; }
     finally { $("e-save").disabled = false; }
   });
 
   // ---------- admin: activity ----------
-  let activityRows = [];
+  let activityRows = [], activityEvent = "";
   async function loadActivity() {
-    $("activity-msg").className = "msg"; $("activity-msg").textContent = "Loading…";
-    const { data, error } = await sb.from("portal_activity").select("username, event, at, user_agent")
-      .order("at", { ascending: false }).limit(500);
-    if (error) { $("activity-msg").className = "msg error"; $("activity-msg").textContent = "Can't load activity. Try again."; return; }
+    $("activity-msg").className = "msg"; $("activity-msg").textContent = "";
+    $("activity").innerHTML = '<p class="empty">Loading activity…</p>';
+    const { data, error } = await sb.from("portal_activity").select("username, event, at, user_agent").order("at", { ascending: false }).limit(500);
+    if (error) { $("activity").innerHTML = '<p class="empty">Can\'t load activity. Check your connection and try again.</p>'; return; }
     activityRows = data;
     const people = [...new Set(data.map((r) => r.username).filter(Boolean))].sort();
     const keep = $("f-person").value;
@@ -588,24 +877,28 @@
   }
   function device(ua) {
     if (!ua) return "";
-    const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Windows/.test(ua) ? "Windows"
-      : /Mac OS X/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "";
-    const br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox"
-      : /Safari\//.test(ua) ? "Safari" : "";
+    const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "";
+    const br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
     return [br, os].filter(Boolean).join(" on ");
   }
+  const EVENT_INK = { open_csrc: "var(--c)", open_tasks: "var(--m)", open_dpr: "var(--y)", open_coverage: "var(--g)", sign_in: "var(--k)" };
   function renderActivity() {
-    const p = $("f-person").value, ev = $("f-event").value;
-    const rows = activityRows.filter((r) => (!p || r.username === p) && (!ev || r.event === ev));
+    const p = $("f-person").value;
+    const rows = activityRows.filter((r) => (!p || r.username === p) && (!activityEvent || r.event === activityEvent));
     $("activity").innerHTML = rows.length
-      ? '<table><thead><tr><th>When</th><th>Person</th><th>What</th><th>Device</th></tr></thead><tbody>' +
-        rows.map((r) => '<tr><td class="num">' + when(r.at) + "</td><td>" + esc(r.username || "–") + "</td><td>" +
-          (EVENT_LABEL[r.event] || esc(r.event)) + '</td><td class="muted">' + esc(device(r.user_agent)) + "</td></tr>").join("") +
-        "</tbody></table>"
+      ? '<table><thead><tr><th>When</th><th>Person</th><th>What</th><th class="hide-sm">Device</th></tr></thead><tbody>' +
+        rows.map((r) => "<tr><td>" + when(r.at) + "</td><td>" + esc(r.username || "–") + '</td><td><i class="dot" style="--i:' + (EVENT_INK[r.event] || "var(--g)") + '"></i>' +
+          (EVENT_LABEL[r.event] || esc(r.event)) + '</td><td class="muted hide-sm">' + esc(device(r.user_agent)) + "</td></tr>").join("") + "</tbody></table>"
       : '<p class="empty">Nothing matches these filters.</p>';
   }
   $("f-person").addEventListener("change", renderActivity);
-  $("f-event").addEventListener("change", renderActivity);
+  $("f-event").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-ev]");
+    if (!b) return;
+    activityEvent = b.dataset.ev;
+    $("f-event").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    renderActivity();
+  });
 
   // ---------- start ----------
   window.addEventListener("hashchange", route);

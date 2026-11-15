@@ -1,0 +1,92 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=Mukta:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--stock:#fbfbf9;--ink:#16181b;--ink2:#5d6168;--rule:#d9dbd6;--reg:#16181b;
+--c:#00a3d9;--m:#d6247f;--y:#f7d117;--k:#16181b;--red:#c63d3d;--green:#2f8a5b}
+body{width:1440px;height:900px;overflow:hidden;font:15px/1.4 Archivo,sans-serif;color:var(--ink);background:var(--stock)}
+.np{font-family:Mukta,sans-serif}
+.top{height:56px;display:flex;align-items:center;gap:28px;padding:0 32px;border-bottom:1px solid var(--rule);background:#fff}
+.brand{font-weight:700;font-stretch:80%;font-size:19px;letter-spacing:.01em}
+nav{display:flex;gap:4px;height:100%}
+nav a{display:flex;align-items:center;gap:8px;padding:0 14px;color:var(--ink2);text-decoration:none;font-weight:500;border-bottom:3px solid transparent}
+nav a i{width:10px;height:10px;background:var(--d)}
+nav a.on{color:var(--ink);border-color:var(--ink)}
+.top .me{margin-left:auto;color:var(--ink2);font-size:14px}
+/* the colour control strip: one patch per live figure */
+.strip{display:flex;height:52px;margin:0 32px;border:1px solid var(--rule);border-top:0;background:#fff}
+.strip div{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 12px;border-left:1px solid var(--rule);position:relative}
+.strip div:first-child{border-left:0}
+.strip div::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:var(--p)}
+.strip b{font-size:17px;font-weight:700;font-stretch:85%;font-variant-numeric:tabular-nums;margin-top:6px}
+.strip small{font-size:11.5px;color:var(--ink2);margin-top:-3px}
+.page{padding:26px 32px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px 36px}
+.title{grid-column:1/-1;display:flex;align-items:baseline;gap:16px}
+.title h1{font-size:34px;font-weight:700;font-stretch:78%;letter-spacing:-.005em}
+.title .np{color:var(--ink2);font-size:18px}
+/* each work area sits inside trim marks instead of a box */
+.area{position:relative;padding:18px 4px 6px}
+.area::before,.area::after{content:"";position:absolute;width:14px;height:14px;border-color:var(--ink);border-style:solid}
+.area::before{left:-10px;top:0;border-width:1px 0 0 1px}
+.area::after{right:-10px;top:0;border-width:1px 1px 0 0}
+.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.hd h2{font-size:19px;font-weight:700;font-stretch:85%}.hd span{color:var(--ink2);font-size:13px}
+.hd a{margin-left:auto;font-size:13px;font-weight:600;color:var(--ink)}
+ul{list-style:none;padding:0}
+li{display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--rule)}
+.box{width:20px;height:20px;border:1.5px solid var(--ink2);border-radius:3px;flex:none}
+.box.done{background:var(--m);border-color:var(--m)}
+.t{flex:1}.t small{display:block;color:var(--ink2);font-size:12.5px}
+.late{color:var(--red);font-weight:600;font-size:12.5px}
+.time{width:44px;color:var(--ink2);font-size:13px;font-variant-numeric:tabular-nums}
+.ok{color:var(--green);font-weight:600;font-size:12.5px}
+.bars{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+.bar{display:grid;grid-template-columns:96px 1fr 42px;align-items:center;gap:10px;font-size:13px}
+.bar i{display:block;height:14px;background:var(--s)}
+.bar b{text-align:right;font-variant-numeric:tabular-nums}
+.sel{font-weight:700}
+.note{margin-top:12px;font-size:13px;color:var(--ink2)}.note b{color:var(--ink)}
+td{padding:8px 0;border-top:1px solid var(--rule);font-size:13.5px}
+table{width:100%;border-collapse:collapse}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.red{color:var(--red);font-weight:700}
+</style></head><body>
+<div class="top"><span class="brand">PRINT CELL</span>
+  <nav><a class="on" href="#" style="--d:var(--k)"><i></i>Today</a><a href="#" style="--d:var(--m)"><i></i>Tasks</a><a href="#" style="--d:var(--c)"><i></i>CSRC</a><a href="#" style="--d:var(--y)"><i></i>DPR</a><a href="#" style="--d:#7b808a"><i></i>Coverage</a></nav>
+  <span class="me">Ashutosh Sharma · Settings</span></div>
+<div class="strip">
+  <div style="--p:var(--m)"><b>5</b><small>Tasks open</small></div>
+  <div style="--p:var(--red)"><b>2</b><small>Tasks late</small></div>
+  <div style="--p:var(--c)"><b>7</b><small>Calls today</small></div>
+  <div style="--p:var(--c);opacity:1"><b>3</b><small>Calls overdue</small></div>
+  <div style="--p:#d65d69"><b>27</b><small>Red customers</small></div>
+  <div style="--p:#3f434b"><b>38</b><small>Black customers</small></div>
+  <div style="--p:var(--y)"><b>6</b><small>Cheques today</small></div>
+  <div style="--p:#7b808a"><b>4</b><small>Toner red</small></div>
+</div>
+<div class="page">
+  <div class="title"><h1>Sunday, 15 November</h1><span class="np">कार्तिक २९, २०८३</span></div>
+  <div class="area"><div class="hd"><h2>Tasks</h2><span>3 today, 2 late</span><a href="#">Open Tasks</a></div>
+    <ul><li><span class="box"></span><span class="t">Bank reconciliation, NIC Asia<small>Print Cell</small></span></li>
+    <li><span class="box done"></span><span class="t">VAT register upload<small>Biz Print · waiting for approval</small></span></li>
+    <li><span class="box"></span><span class="t">Petty cash count<small>Print Cell</small></span></li>
+    <li><span class="box"></span><span class="t">TDS deposit, Kartik<small>Biz Print · due Kartik 25</small></span><span class="late">4 days late</span></li>
+    <li><span class="box"></span><span class="t">Toner stock count<small>Print Cell · due Kartik 27</small></span><span class="late">2 days late</span></li></ul></div>
+  <div class="area"><div class="hd"><h2>Calls today</h2><span>7, 2 done</span><a href="#">Open CSRC</a></div>
+    <ul><li><span class="time">10:00</span><span class="t">Himalayan Bank, Thamel<small>SCH · Rajan, Bikash</small></span><span class="ok">Done</span></li>
+    <li><span class="time">11:30</span><span class="t">Nabil Bank HQ<small>OC · Suresh</small></span></li>
+    <li><span class="time">13:00</span><span class="t">Kathmandu University<small>SCH · Rajan</small></span></li>
+    <li><span class="time">14:30</span><span class="t">Hotel Annapurna<small>SCH · Bikash</small></span></li></ul></div>
+  <div class="area"><div class="hd"><h2>Customer dues</h2><span>412 customers</span><a href="#">Open DPR</a></div>
+    <div class="bars">
+      <div class="bar" style="--s:#3f434b"><span>Black</span><i style="width:32%"></i><b>38</b></div>
+      <div class="bar" style="--s:#a5a9b0"><span>Gray</span><i style="width:51%"></i><b>61</b></div>
+      <div class="bar" style="--s:#3d8dc6"><span>Blue</span><i style="width:79%"></i><b>94</b></div>
+      <div class="bar sel" style="--s:#d65d69"><span>Red</span><i style="width:23%"></i><b>27</b></div>
+      <div class="bar" style="--s:#e8be3e"><span>Yellow</span><i style="width:61%"></i><b>73</b></div>
+      <div class="bar" style="--s:#4ca680"><span>Green</span><i style="width:100%"></i><b>119</b></div></div>
+    <p class="note">Red total <b>Rs 48,62,300</b> · report of 14 Nov</p></div>
+  <div class="area" style="grid-column:3"><div class="hd"><h2>Over-supplied toner</h2><span>FY 2083/84</span><a href="#">Open Coverage</a></div>
+    <table><tr><td>Everest Insurance</td><td>TN-328K</td><td class="n red">+6</td></tr>
+    <tr><td>NTC Jawalakhel</td><td>TN-514C</td><td class="n red">+4</td></tr></table></div>
+</div></body></html>

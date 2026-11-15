@@ -1,0 +1,108 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Mukta:wght@500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--paper:#fff;--desk:#eef0ec;--ink:#1d2024;--ink2:#5b6068;--rule:#dfe2dc;
+--c:#0093c9;--m:#c8237a;--y:#f2c500;--k:#24272b;--red:#c63d3d;--green:#2f8a5b}
+body{width:1440px;height:900px;overflow:hidden;font:15px/1.4 "Hanken Grotesk",sans-serif;color:var(--ink);background:var(--desk);display:grid;grid-template-columns:232px 1fr}
+.np{font-family:Mukta,sans-serif}
+/* rail: the apps as a stack of swatch chips */
+.rail{background:var(--paper);border-right:1px solid var(--rule);padding:20px 16px;display:flex;flex-direction:column;gap:10px}
+.who{padding:2px 4px 14px}.who b{font-size:17px;display:block}.who span{color:var(--ink2);font-size:13px}
+.chip{border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--paper)}
+.chip i{display:block;height:34px;background:var(--ink-c)}
+.chip div{padding:8px 10px 9px;display:flex;justify-content:space-between;align-items:baseline}
+.chip b{font-weight:600}.chip small{color:var(--ink2);font-variant-numeric:tabular-nums}
+.chip.on{outline:2px solid var(--ink);outline-offset:-1px}
+.chip:not(.on) i{opacity:.28}
+.rail .foot{margin-top:auto;font-size:13px;color:var(--ink2);display:flex;justify-content:space-between;padding:0 4px}
+main{padding:22px 28px;display:grid;grid-template-columns:1.1fr 1fr 1fr;grid-template-rows:auto auto 1fr;gap:16px}
+header{grid-column:1/-1;display:flex;align-items:flex-end;gap:18px}
+header h1{font-size:30px;font-weight:600;letter-spacing:-.01em}
+header .np{font-size:18px;color:var(--ink2)}
+.search{margin-left:auto;width:340px;height:38px;border:1px solid var(--rule);border-radius:6px;background:var(--paper);padding:0 12px;display:flex;align-items:center;color:var(--ink2);font-size:14px;gap:8px}
+kbd{margin-left:auto;font:12px "Hanken Grotesk";border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
+section{background:var(--paper);border-radius:6px;display:flex;flex-direction:column;overflow:hidden}
+.band{height:6px;background:var(--b)}
+.hd{display:flex;align-items:baseline;gap:10px;padding:14px 16px 10px}
+.hd h2{font-size:17px;font-weight:600}.hd span{color:var(--ink2);font-size:13px}.hd a{margin-left:auto;font-size:13px;color:var(--ink);font-weight:600;text-decoration:none}
+.tasks{grid-row:2/4}
+ul{list-style:none;padding:0 8px}
+li{display:flex;align-items:center;gap:12px;padding:9px 8px;border-top:1px solid var(--rule)}
+.box{width:20px;height:20px;border:1.5px solid var(--ink2);border-radius:4px;flex:none}
+.box.done{background:var(--m);border-color:var(--m)}
+li .t{flex:1}li .t small{display:block;color:var(--ink2);font-size:12.5px}
+.late{font-size:12px;font-weight:600;padding:2px 7px;border-radius:3px;background:repeating-linear-gradient(135deg,#f6dede 0 4px,#fff 4px 8px);color:var(--red)}
+.sub{padding:12px 16px 4px;font-size:13px;color:var(--ink2);font-weight:600}
+.time{font-variant-numeric:tabular-nums;color:var(--ink2);width:46px;font-size:13px}
+.st{font-size:12px;font-weight:600;color:var(--green)}
+/* DPR: statuses as swatch chips with a label strip */
+.deck{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:4px 16px 12px}
+.sw{border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.sw i{display:block;height:58px;background:var(--s)}
+.sw div{padding:6px 7px}.sw b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}.sw small{font-size:11.5px;color:var(--ink2)}
+.sw.sel{outline:2px solid var(--ink);outline-offset:-1px}
+.ramp{display:flex;height:8px;margin:0 16px 4px;border-radius:2px;overflow:hidden}
+.foot2{padding:8px 16px 14px;font-size:13px;color:var(--ink2);display:flex;gap:18px;margin-top:auto;border-top:1px solid var(--rule)}
+.foot2 b{color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-weight:600;color:var(--ink2);font-size:12.5px;padding:6px 16px;border-bottom:1px solid var(--rule)}
+td{padding:8px 16px;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums}
+td.n{text-align:right}
+.red{color:var(--red);font-weight:600}
+.hatch{background:repeating-linear-gradient(135deg,#fbecec 0 4px,#fff 4px 8px)}
+</style></head><body>
+<aside class="rail">
+  <div class="who"><b>Ashutosh Sharma</b><span>Portal admin</span></div>
+  <div class="chip on" style="--ink-c:var(--k)"><i></i><div><b>Today</b><small>Home</small></div></div>
+  <div class="chip" style="--ink-c:var(--m)"><i></i><div><b>Tasks</b><small>5 open</small></div></div>
+  <div class="chip" style="--ink-c:var(--c)"><i></i><div><b>CSRC</b><small>7 calls</small></div></div>
+  <div class="chip" style="--ink-c:var(--y)"><i></i><div><b>DPR</b><small>412</small></div></div>
+  <div class="chip" style="--ink-c:#7b808a"><i></i><div><b>Coverage</b><small>4 red</small></div></div>
+  <div class="foot"><span>Settings</span><span>Sign out</span></div>
+</aside>
+<main>
+  <header><h1>Sunday, 15 November</h1><span class="np">आइतबार, कार्तिक २९, २०८३</span>
+    <div class="search">Search customers, calls, tasks<kbd>/</kbd></div></header>
+  <section class="tasks" style="--b:var(--m)"><i class="band"></i>
+    <div class="hd"><h2>Tasks</h2><span>3 today · 2 late</span><a href="#">Open Tasks</a></div>
+    <p class="sub">Today</p>
+    <ul>
+      <li><span class="box"></span><span class="t">Bank reconciliation, NIC Asia<small>Print Cell</small></span></li>
+      <li><span class="box done"></span><span class="t">VAT register upload<small>Biz Print · waiting for approval</small></span></li>
+      <li><span class="box"></span><span class="t">Petty cash count<small>Print Cell</small></span></li>
+    </ul>
+    <p class="sub">Late</p>
+    <ul>
+      <li><span class="box"></span><span class="t">TDS deposit, Kartik<small>Biz Print · due Kartik 25</small></span><span class="late">4 days</span></li>
+      <li><span class="box"></span><span class="t">Toner stock count<small>Print Cell · due Kartik 27</small></span><span class="late">2 days</span></li>
+    </ul>
+  </section>
+  <section style="--b:var(--y);grid-column:2/4;grid-row:2"><i class="band"></i>
+    <div class="hd"><h2>Customer dues</h2><span>412 customers · report of 14 Nov</span><a href="#">Open DPR</a></div>
+    <div class="deck">
+      <div class="sw" style="--s:#3f434b"><i></i><div><b>38</b><small>Black · both late</small></div></div>
+      <div class="sw" style="--s:#a5a9b0"><i></i><div><b>61</b><small>Gray · cheque late</small></div></div>
+      <div class="sw" style="--s:#3d8dc6"><i></i><div><b>94</b><small>Blue · credit +30</small></div></div>
+      <div class="sw sel" style="--s:#d65d69"><i></i><div><b>27</b><small>Red · past credit</small></div></div>
+      <div class="sw" style="--s:#e8be3e"><i></i><div><b>73</b><small>Yellow · PDC covers</small></div></div>
+      <div class="sw" style="--s:#4ca680"><i></i><div><b>119</b><small>Green · in terms</small></div></div>
+    </div>
+    <div class="foot2"><span>Red total <b>Rs 48,62,300</b></span><span>Cheques today <b>6</b></span><span>Overdue cheques <b class="red">3</b></span></div>
+  </section>
+  <section style="--b:var(--c)"><i class="band"></i>
+    <div class="hd"><h2>Calls today</h2><span>7 · 2 done</span><a href="#">Open CSRC</a></div>
+    <ul>
+      <li><span class="time">10:00</span><span class="t">Himalayan Bank, Thamel<small>SCH · Rajan, Bikash</small></span><span class="st">Done</span></li>
+      <li><span class="time">11:30</span><span class="t">Nabil Bank HQ<small>OC · Suresh</small></span></li>
+      <li><span class="time">13:00</span><span class="t">Kathmandu University<small>SCH · Rajan</small></span></li>
+    </ul>
+  </section>
+  <section style="--b:#7b808a"><i class="band"></i>
+    <div class="hd"><h2>Over-supplied toner</h2><span>FY 2083/84</span><a href="#">Open Coverage</a></div>
+    <table><tr><th>Cost centre</th><th>Part</th><th class="n">Excess</th></tr>
+      <tr class="hatch"><td>Everest Insurance</td><td>TN-328K</td><td class="n red">+6</td></tr>
+      <tr class="hatch"><td>NTC Jawalakhel</td><td>TN-514C</td><td class="n red">+4</td></tr>
+      <tr><td>Global IME, Teku</td><td>DR-313</td><td class="n">+1</td></tr></table>
+  </section>
+</main></body></html>
