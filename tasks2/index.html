@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<title>Tasks · Print Cell and Biz Print</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Mukta:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <p class="boot" id="boot">Loading…</p>
+
+  <!-- Sign in -->
+  <main class="signin hidden" id="signin-view">
+    <form id="signin" class="sheet signin-sheet" autocomplete="on">
+      <div class="signin-ink" aria-hidden="true"><span class="np" id="si-np"></span><b id="si-day"></b><span id="si-ad"></span></div>
+      <div class="signin-body">
+        <h1>Tasks</h1>
+        <p class="lede">Sign in to see what's due today. If you use the <a href="https://printcell.ashutosh-sharma.com/">Print Cell portal</a>, open Tasks from there instead.</p>
+        <label for="si-user">Username</label>
+        <input id="si-user" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <label for="si-pass">Password</label>
+        <input id="si-pass" type="password" autocomplete="current-password" required>
+        <button class="btn wide" id="si-btn" type="submit">Sign in</button>
+        <p class="msg error" id="si-msg" role="alert"></p>
+        <p class="hint">Forgot your password? Ask Ashutosh to set a new one.</p>
+      </div>
+    </form>
+  </main>
+
+  <div class="shell hidden" id="shell">
+    <aside class="rail" aria-label="Tasks">
+      <div class="who"><strong id="who-name"></strong><span id="who-role"></span></div>
+      <div class="rail-date" id="rail-date"></div>
+      <nav class="views" id="views" aria-label="Main"></nav>
+      <nav class="rail-foot" aria-label="Account">
+        <a href="https://printcell.ashutosh-sharma.com/">All apps</a>
+        <button type="button" id="signout">Sign out</button>
+      </nav>
+    </aside>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+
+  <div class="scrim hidden" id="scrim"></div>
+  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title" hidden>
+    <header class="panel-head">
+      <h2 id="panel-title"></h2>
+      <button type="button" class="icon-btn" id="panel-close" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+    </header>
+    <div class="panel-body" id="panel-body"></div>
+  </aside>
+
+  <div class="toast hidden" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="cal.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
