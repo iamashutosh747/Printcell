@@ -12,8 +12,9 @@
     csrc: { name: "CSRC", ink: "var(--c)" },
     dpr: { name: "DPR", ink: "var(--y)" },
     coverage: { name: "Coverage", ink: "var(--g)" },
+    stock: { name: "Stock", ink: "var(--ok)" },
   };
-  const ORDER = ["tasks", "csrc", "dpr", "coverage"];
+  const ORDER = ["tasks", "csrc", "dpr", "coverage", "stock"];
   // DPR statuses in DPR's own order (worst first), their swatch and what they mean.
   const STATUSES = [
     ["Black", "var(--s-black)", "Cheque late and credit +30"], ["Gray", "var(--s-gray)", "Cheque past its date"],
@@ -22,7 +23,8 @@
   ];
   const INK_OF = Object.fromEntries(STATUSES.map(([s, ink]) => [s, ink]));
   const DPR_LABEL = { full: "Full report", pdc: "PDC cheques only", agent: "Agent" };
-  const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR", open_coverage: "Opened Coverage" };
+  const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR", open_coverage: "Opened Coverage", open_stock: "Opened Stock" };
+  const STOCK_LABEL = { stock: "stock and reorder only", view: "all reports, view only", full: "full access" };
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
@@ -171,7 +173,7 @@
     try {
       const { url, post } = await callFn("portal-launch", { app });
       if (post) {
-        // The coverage site has its own sign-in: hand it this person's token in a form post.
+        // Coverage and Stock have their own sign-in: hand them this person's token in a form post.
         const { data: { session } } = await sb.auth.getSession();
         if (!session) throw new Error("Your session has ended. Sign in again.");
         postForm(post, { access_token: session.access_token });
@@ -763,7 +765,8 @@
         const dpr = u.dpr_role ? (u.dpr_role === "agent" ? "agent " + u.dpr_agent_name : DPR_LABEL[u.dpr_role].toLowerCase()) + (u.dpr_can_export ? ", export" : "") : null;
         const cov = u.coverage_user ? u.coverage_user + (((roster.coverage_accounts || []).find((x) => x.username === u.coverage_user) || {}).active === false ? ", inactive" : "") : null;
         const apps = access("var(--m)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) + access("var(--c)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
-          access("var(--y)", "DPR", dpr) + access("var(--g)", "Coverage", cov);
+          access("var(--y)", "DPR", dpr) + access("var(--g)", "Coverage", cov) +
+          access("var(--ok)", "Stock", u.stock_role ? STOCK_LABEL[u.stock_role] : null);
         const state = !u.active ? '<span class="state">Can\'t sign in</span>' : !u.password_set ? '<span class="state warn">Needs a password</span>' : '<span class="state on">Active</span>';
         return '<tr class="pick" data-edit="' + u.id + '" tabindex="0"><td><strong>' + esc(u.full_name) + "</strong>" + (u.is_admin ? " · Admin" : "") +
           '<span class="sub">' + esc(u.username) + "</span></td><td>" + (apps || '<span class="muted">No apps</span>') + "</td>" +
@@ -813,6 +816,7 @@
     fillSelect($("e-csrc"), roster.csrc_accounts, "csrc_user_id", u && u.csrc_user_id);
     fillSelect($("e-tasks"), roster.task_accounts, "task_user_id", u && u.task_user_id);
     fillCoverage(u && u.coverage_user);
+    $("e-stock").value = (u && u.stock_role) || "";
     $("e-dpr").value = (u && u.dpr_role) || "";
     $("e-agent").innerHTML = '<option value="">Pick an agent</option>' + roster.dpr_agents.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
     $("e-agent").value = (u && u.dpr_agent_name) || "";
@@ -847,6 +851,7 @@
       password: pass || undefined, active: $("e-active").checked, is_admin: $("e-admin").checked,
       csrc_user_id: $("e-csrc").value || null, task_user_id: $("e-tasks").value || null,
       coverage_user: $("e-coverage").value || null,
+      stock_role: $("e-stock").value || null,
       dpr_role: $("e-dpr").value || null, dpr_agent_name: $("e-agent").value || null, dpr_can_export: $("e-export").checked,
     };
     $("e-save").disabled = true; msg.textContent = "";
@@ -881,7 +886,7 @@
     const br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
     return [br, os].filter(Boolean).join(" on ");
   }
-  const EVENT_INK = { open_csrc: "var(--c)", open_tasks: "var(--m)", open_dpr: "var(--y)", open_coverage: "var(--g)", sign_in: "var(--k)" };
+  const EVENT_INK = { open_csrc: "var(--c)", open_tasks: "var(--m)", open_dpr: "var(--y)", open_coverage: "var(--g)", open_stock: "var(--ok)", sign_in: "var(--k)" };
   function renderActivity() {
     const p = $("f-person").value;
     const rows = activityRows.filter((r) => (!p || r.username === p) && (!activityEvent || r.event === activityEvent));

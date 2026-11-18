@@ -8,6 +8,7 @@ const EMAIL_DOMAIN = "printcell.internal";
 const USERNAME = /^[a-z0-9._-]{2,32}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DPR_ROLES = ["full", "pdc", "agent"];
+const STOCK_ROLES = ["stock", "view", "full"];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,8 @@ function clean(u: Record<string, unknown>) {
   if (dpr_role && !DPR_ROLES.includes(dpr_role)) throw new UserError("Pick a DPR access level from the list.");
   const dpr_agent_name = dpr_role === "agent" ? String(u.dpr_agent_name ?? "").trim() : null;
   if (dpr_role === "agent" && !dpr_agent_name) throw new UserError("Pick which agent's customers this person sees in DPR.");
+  const stock_role = u.stock_role ? String(u.stock_role) : null;
+  if (stock_role && !STOCK_ROLES.includes(stock_role)) throw new UserError("Pick a Stock access level from the list.");
   return {
     username, full_name,
     is_admin: u.is_admin === true,
@@ -72,6 +75,7 @@ function clean(u: Record<string, unknown>) {
     coverage_user: covUser(u.coverage_user),
     dpr_role, dpr_agent_name,
     dpr_can_export: dpr_role ? u.dpr_can_export === true : false,
+    stock_role,
   };
 }
 
