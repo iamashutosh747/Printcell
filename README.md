@@ -21,6 +21,7 @@ The portal, DPR and Tasks are plain static files: no build step, no dependencies
 - **Open DPR:** same hand-off, but DPR reads the person's own DPR role (`full`, `pdc` or `agent`, plus export on/off) from `portal_users`. DPR access codes still work.
 - `portal-admin` lets portal admins add people, link accounts, set DPR access and reset passwords. It checks the caller is an active admin on every request.
 - **Open Coverage** (coverage.ashutosh-sharma.com, the `toner-pilferage` repo): the coverage site has its own accounts and signed cookie. The portal posts the person's own token to the coverage site's `/sso` route, which asks the database who they are there (`portal_coverage_identity`) and sets the normal cookie. Only posts from the portal's address are accepted. This relies on the portal sending `Referrer-Policy: strict-origin` (see `portal/vercel.json`): with `no-referrer` or `same-origin` browsers label the post `Origin: null` and the coverage site correctly refuses it.
+- **Open Stock** (stock.ashutosh-sharma.com, the `stock-reorder` repo): same hand-off as Coverage. The portal posts the person's token to the stock site's `/sso` route, which checks it with Supabase Auth, reads `portal_users.stock_role` (`stock` = stock and reorder only, `view` = all reports, `full` = reports, imports and settings) and sets its own signed cookie. Stock re-checks `stock_role` on every page, so removing access takes effect at once.
 - Sign-ins and app opens are logged to `portal_activity` (admins only).
 
 ## Deploying
@@ -40,7 +41,7 @@ supabase functions deploy portal-launch --no-verify-jwt --project-ref fbtddbcypm
 
 ## Colours
 
-All five apps share one light palette: background `#f6f7f5`, surfaces `#ffffff`, text `#2a2e35`, muted `#697079`, lines `#e6e7e3`, accent blue `#1e7ab0` (hover and text-on-tint `#186a99`, tint `#e7f2f9`), red `#b5434f`, green `#2e7a56`, amber `#8a6608`. CMYK inks for app markers: cyan `#3fa9d8`, magenta `#d95b9b`, yellow `#eec646`, key `#7b808a`.
+All six apps share one light palette: background `#f6f7f5`, surfaces `#ffffff`, text `#2a2e35`, muted `#697079`, lines `#e6e7e3`, accent blue `#1e7ab0` (hover and text-on-tint `#186a99`, tint `#e7f2f9`), red `#b5434f`, green `#2e7a56`, amber `#8a6608`. CMYK inks for app markers: cyan `#3fa9d8`, magenta `#d95b9b`, yellow `#eec646`, key `#7b808a`.
 
 ## Secrets
 

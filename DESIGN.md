@@ -1,6 +1,6 @@
 ---
 name: Print Cell
-description: Five internal apps that read as pages of one ink swatch book.
+description: Six internal apps that read as pages of one ink swatch book.
 colors:
   desk: "#eef0ec"
   paper: "#ffffff"
@@ -15,15 +15,23 @@ colors:
   ink-c: "#0093c9"
   ink-y: "#f2c500"
   ink-g: "#7b808a"
+  ink-o: "#ef6c1f"
   m-text: "#a3165f"
   c-text: "#00698f"
   y-text: "#7a5f00"
+  o-text: "#ad4a0e"
   s-black: "#3f434b"
   s-gray: "#a5a9b0"
   s-blue: "#3d8dc6"
   s-red: "#d65d69"
   s-yellow: "#e8be3e"
   s-green: "#4ca680"
+  st-now: "#c8423f"
+  st-soon: "#e8be3e"
+  st-ok: "#4ca680"
+  st-over: "#3d8dc6"
+  st-occ: "#a5a9b0"
+  st-none: "#d6d8d2"
   bad: "#b3343a"
   bad-soft: "#fbeceb"
   ok: "#2a7a50"
@@ -127,7 +135,7 @@ Every Print Cell app is a page from a printer's ink swatch book. White chip stoc
 
 These are working tools used at desks and on phones at customer sites, so the world contributes only type, palette, density and one signature move (swatches). Layout, navigation and controls stay the standard ones staff already know.
 
-The portal (printcell.ashutosh-sharma.com) is the reference build. CSRC, DPR, Coverage and Tasks adopt the same tokens and components.
+The portal (printcell.ashutosh-sharma.com) is the reference build. CSRC, DPR, Coverage, Tasks and Stock adopt the same tokens and components.
 
 ## Colors
 
@@ -137,9 +145,13 @@ The portal (printcell.ashutosh-sharma.com) is the reference build. CSRC, DPR, Co
 - **Cyan** `#0093c9`: CSRC. Text-safe version `#00698f`.
 - **Yellow** `#f2c500`: DPR. Text-safe version `#7a5f00`; text on a yellow field is always ink.
 - **Grey** `#7b808a`: Coverage.
+- **Orange** `#ef6c1f`: Stock (stock.ashutosh-sharma.com), the extended-gamut ink that sits beside CMYK on a press. Text-safe version `#ad4a0e`.
 
 ### DPR statuses
 Black `#3f434b`, Gray `#a5a9b0`, Blue `#3d8dc6`, Red `#d65d69`, Yellow `#e8be3e`, Green `#4ca680`, always in this order (worst first) and always labelled.
+
+### Stock reorder statuses
+Order now `#c8423f`, Order soon `#e8be3e`, OK `#4ca680`, Overstock `#3d8dc6`, Occasional `#a5a9b0`, No movement `#d6d8d2`, always in this order (most urgent first) and always labelled. A late order-by month also carries the hatch mark and words.
 
 ### Neutral
 Desk `#eef0ec` is the page ground; Paper `#ffffff` is every sheet, panel and chip; Soft `#f5f6f3` is hover and quiet fills. Ink `#1d2024` for text (pressed buttons go to `#000`), `#555a62` secondary, `#62676f` meta (at least 4.9:1 on the desk). Rules `#e2e4df`, stronger rules and control borders `#cdd0ca`.
@@ -219,5 +231,5 @@ Ink background, white text, with Undo for anything done in place.
 ### Don't:
 - Don't use an app's ink as text colour or as a background for long text.
 - Don't add eyebrow labels, gradient text, glass, or extra shadows.
-- Don't use the Tasks magenta, CSRC cyan, DPR yellow or Coverage grey for anything other than that app.
+- Don't use the Tasks magenta, CSRC cyan, DPR yellow, Coverage grey or Stock orange for anything other than that app.
 - Don't introduce a dark theme; the user asked for light interfaces.

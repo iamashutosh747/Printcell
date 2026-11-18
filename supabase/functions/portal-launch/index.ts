@@ -11,6 +11,7 @@ const APPS: Record<string, { url: string; event: string; name: string }> = {
   tasks: { url: "https://tasks.ashutosh-sharma.com/", event: "open_tasks", name: "Tasks" },
   dpr: { url: "https://dpr.ashutosh-sharma.com/", event: "open_dpr", name: "DPR" },
   coverage: { url: "https://coverage.ashutosh-sharma.com/sso", event: "open_coverage", name: "Coverage" },
+  stock: { url: "https://stock.ashutosh-sharma.com/sso", event: "open_stock", name: "Stock" },
 };
 
 const cors = {
@@ -44,6 +45,12 @@ Deno.serve(async (req) => {
     // Coverage has its own sign-in cookie. The portal posts the person's own token to the coverage
     // site's /sso route, which asks the database who they are there (portal_coverage_identity).
     // So here we only check access, log the open and say where to post.
+    // Stock works the same way: its /sso route checks the token and reads stock_role from portal_users,
+    // and logs the open itself.
+    if (body.app === "stock") {
+      if (!me.stock_role) return fail(403, `You don't have ${app.name} access. Ask an admin.`);
+      return json({ post: app.url });
+    }
     if (body.app === "coverage") {
       const { data: cv } = me.coverage_user
         ? await admin.from("cov_users").select("username, active").eq("username", me.coverage_user).maybeSingle()

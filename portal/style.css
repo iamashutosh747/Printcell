@@ -4,9 +4,11 @@
   --ink: #1d2024;   --ink-2: #555a62;  --ink-3: #62676f;
   --rule: #e2e4df;  --rule-2: #cdd0ca;
   /* process inks, one per app */
-  --k: #24272b;  --m: #c8237a;  --c: #0093c9;  --y: #f2c500;  --g: #7b808a;
+  --k: #24272b;  --m: #c8237a;  --c: #0093c9;  --y: #f2c500;  --g: #7b808a;  --o: #ef6c1f;
   /* the same inks dark enough for text on white */
-  --m-text: #a3165f;  --c-text: #00698f;  --y-text: #7a5f00;
+  --m-text: #a3165f;  --c-text: #00698f;  --y-text: #7a5f00;  --o-text: #ad4a0e;
+  /* Stock reorder statuses that need action */
+  --st-now: #c8423f; --st-soon: #e8be3e;
   /* DPR statuses, worst first */
   --s-black: #3f434b; --s-gray: #a5a9b0; --s-blue: #3d8dc6; --s-red: #d65d69; --s-yellow: #e8be3e; --s-green: #4ca680;
   --bad: #b3343a;  --bad-soft: #fbeceb;  --ok: #2a7a50;  --ok-soft: #e8f4ed;
@@ -77,7 +79,7 @@ kbd { font: 600 12px/1 "Hanken Grotesk", sans-serif; color: var(--ink-3); border
 .signin { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
 .signin-sheet { width: min(400px, 100%); }
 .signin-sheet::before { display: none; }
-.inks { display: grid; grid-template-columns: repeat(5, 1fr); height: 56px; }
+.inks { display: grid; grid-template-columns: repeat(6, 1fr); height: 56px; }
 .inks i { background: var(--i); transform-origin: 0 0; }
 .signin-body { padding: 26px 28px 28px; }
 .signin-body h1 { font-size: 30px; }
@@ -176,6 +178,12 @@ button.row:hover { background: var(--soft); }
 .row .tag { font-size: 13px; font-weight: 600; flex: none; }
 .tag.ok { color: var(--ok); }
 .tag.bad { color: var(--bad); }
+/* stock: a status is a small labelled swatch, never colour alone */
+.st { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); flex: none; white-space: nowrap; }
+.st::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: var(--s); }
+.row .t small.stock-meta { display: flex; align-items: center; gap: 8px; }
+.stock-meta .late-mark, .stock-meta .st { font-size: 12.5px; }
+.stock-meta > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* late: words plus a screen-tint swatch, never colour alone */
 .late-mark { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--bad); flex: none; white-space: nowrap; }
 .late-mark::before { content: ""; width: 10px; height: 10px; border: 1px solid var(--bad); border-radius: 1px;
