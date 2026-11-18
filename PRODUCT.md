@@ -26,6 +26,7 @@ One sign-in (printcell.ashutosh-sharma.com) opens five internal tools that run t
 - **DPR** (Customer Dues Report): customers by colour status (black, gray, blue, red, yellow, green), bills, post-dated cheques (PDC) due, sent cheques, PDF and Excel exports; roles full, pdc-only and agent.
 - **Tasks**: recurring admin tasks on BS-calendar rules (Saturday holiday rolls to Sunday), a Today view with late items, maker submits, admin approves or returns.
 - **Coverage**: toner, drum and developer dispatches compared with expected use from meter readings and CMYK coverage, graded Green, Amber, Red per cost centre and part, by fiscal year.
+- **Stock** (stock.ashutosh-sharma.com, repo `stock-reorder`, Next.js): current stock, reorder plan by Nepali month, pipeline lots, sales pattern and sales dashboard from SQL Server CSV exports; tables `stock_`; access levels stock, view, full set per person in portal admin; signs in through the portal's `/sso` hand-off.
 
 ## Positioning
 

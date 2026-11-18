@@ -12,7 +12,7 @@
     csrc: { name: "CSRC", ink: "var(--c)" },
     dpr: { name: "DPR", ink: "var(--y)" },
     coverage: { name: "Coverage", ink: "var(--g)" },
-    stock: { name: "Stock", ink: "var(--ok)" },
+    stock: { name: "Stock", ink: "var(--o)" },
   };
   const ORDER = ["tasks", "csrc", "dpr", "coverage", "stock"];
   // DPR statuses in DPR's own order (worst first), their swatch and what they mean.
@@ -24,6 +24,9 @@
   const INK_OF = Object.fromEntries(STATUSES.map(([s, ink]) => [s, ink]));
   const DPR_LABEL = { full: "Full report", pdc: "PDC cheques only", agent: "Agent" };
   const EVENT_LABEL = { sign_in: "Signed in", open_csrc: "Opened CSRC", open_tasks: "Opened Tasks", open_dpr: "Opened DPR", open_coverage: "Opened Coverage", open_stock: "Opened Stock" };
+  const STOCK_API = "https://stock.ashutosh-sharma.com/api/portal-home";
+  // Reorder statuses that need action, as labelled swatches (the same inks the Stock app uses).
+  const STOCK_INK = { "Order now": "var(--st-now)", "Order soon": "var(--st-soon)" };
   const STOCK_LABEL = { stock: "stock and reorder only", view: "all reports, view only", full: "full access" };
 
   const $ = (id) => document.getElementById(id);
@@ -212,6 +215,7 @@
   // ---------- home ----------
   const LIST_CAP = 40;   // rows rendered per list before fitting; the rest only count towards "more"
   const FIT = window.matchMedia("(min-width: 1000px) and (min-height: 600px)");
+  const PHONE = window.matchMedia("(max-width: 760px)");
 
   function areaShell(k, sum, body, foot) {
     return '<section class="area" data-app="' + k + '" id="area-' + k + '" style="--i:' + APPS[k].ink + '" aria-labelledby="h-' + k + '">' +
@@ -221,19 +225,21 @@
   }
   function areaTitle(k) {
     if (k === "dpr") return home && home.dpr && !home.dpr.statuses ? "Cheques" : "Customer dues";
-    return { tasks: "Tasks", csrc: "Calls today", coverage: "Over-supplied toner" }[k];
+    return { tasks: "Tasks", csrc: "Calls today", coverage: "Over-supplied toner", stock: "Stock to order" }[k];
   }
   // Grid placement: the first area runs the full height on the left; DPR's swatch deck leads on the right.
   function layout(keys) {
     const a = keys.includes("tasks") ? "tasks" : keys.includes("csrc") ? "csrc" : keys[0];
     const rest = keys.filter((k) => k !== a).sort((x, y) => (x === "dpr" ? -1 : y === "dpr" ? 1 : 0));
-    const placed = [a, ...rest], names = "abcd";
+    const placed = [a, ...rest], names = "abcde";
     const v = { cols: "minmax(0,1fr)", rows: "minmax(0,1fr)", areas: '"a"' };
     const deckTop = rest[0] === "dpr" && home.dpr && home.dpr.statuses;
     if (placed.length === 2) Object.assign(v, { cols: "minmax(0,1fr) minmax(0,1.5fr)", areas: '"a b"' });
     if (placed.length === 3) Object.assign(v, { cols: "minmax(0,1fr) minmax(0,1.5fr)", areas: '"a b" "a c"',
       rows: deckTop ? "auto minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)" });
     if (placed.length === 4) Object.assign(v, { cols: "minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr)", areas: '"a b b" "a c d"',
+      rows: deckTop ? "auto minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)" });
+    if (placed.length === 5) Object.assign(v, { cols: "minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)", areas: '"a b b b" "a c d e"',
       rows: deckTop ? "auto minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)" });
     const el = $("areas");
     el.style.setProperty("--cols", v.cols); el.style.setProperty("--rows", v.rows); el.style.setProperty("--areas", v.areas);
@@ -260,11 +266,12 @@
     }
     home = data;
     renderHome();
+    if (me.stock) loadStock();
   }
   function renderHome() {
-    const keys = myApps().filter((k) => home[k]);
+    const keys = myApps().filter((k) => home[k] || k === "stock");
     const placed = layout(keys);
-    $("areas").innerHTML = placed.map(([k]) => ({ tasks: tasksArea, csrc: csrcArea, dpr: dprArea, coverage: coverageArea })[k](home[k])).join("");
+    $("areas").innerHTML = placed.map(([k]) => k === "stock" ? stockArea(stock) : ({ tasks: tasksArea, csrc: csrcArea, dpr: dprArea, coverage: coverageArea })[k](home[k])).join("");
     placed.forEach(([k, n]) => $("area-" + k).style.setProperty("--ga", n));
     if (!fanned) { const d = $("areas").querySelector(".deck"); if (d) d.classList.add("fan"); fanned = true; }
     fitLists();
@@ -277,6 +284,7 @@
     tasks: (n) => plural(n, "more task", "more tasks") + " in Tasks",
     csrc: (n) => plural(n, "more call", "more calls") + " in CSRC",
     coverage: (n) => plural(n, "more customer", "more customers") + " in Coverage",
+    stock: (n) => plural(n, "more product", "more products") + " in Stock",
   };
   function fitLists() {
     for (const area of $("areas").querySelectorAll(".area[data-app]")) {
@@ -553,6 +561,74 @@
     wirePick(body, "w", (i) => ccPanel(list[i], watchPanel));
   }
 
+  // ----- Stock: what to order now and soon, from the Stock app's reorder plan -----
+  let stock = null;   // { loading } | { error } | the Stock app's /api/portal-home answer
+  async function loadStock() {
+    if (!stock || stock.error) paintStock({ loading: true });
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error("Your session has ended. Sign in again.");
+      let res;
+      try { res = await fetch(STOCK_API, { headers: { Authorization: "Bearer " + session.access_token } }); }
+      catch (e) { throw new Error("Can't reach Stock. Check your connection and try again."); }
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Stock couldn't load (" + res.status + ").");
+      paintStock(out);
+    } catch (e) { paintStock({ error: e.message }); }
+  }
+  function paintStock(s) {
+    stock = s;
+    const el = $("area-stock");
+    if (!el) return;
+    const ga = el.style.getPropertyValue("--ga");
+    el.outerHTML = stockArea(s);
+    $("area-stock").style.setProperty("--ga", ga);
+    fitLists();
+    buildIndex();
+  }
+  function stockWhen(x) {
+    if (x.months_late > 0) return "Was due to order by " + x.order_by;
+    return (x.order_by ? "Order by " + x.order_by : "") + (x.need ? ", needed in " + x.need : "");
+  }
+  // One short line under the product: how urgent, then when it is needed.
+  function stockMeta(x) {
+    const mark = x.months_late > 0 ? '<span class="late-mark">' + plural(x.months_late, "month", "months") + " late</span>"
+      : '<span class="st" style="--s:' + STOCK_INK[x.status] + '">' + esc(x.status) + "</span>";
+    return mark + (x.need ? " <span>need " + esc(x.need) + "</span>" : "");
+  }
+  function stockArea(s) {
+    if (!s || s.loading) { setChip("stock", "Open"); return areaShell("stock", "Loading…", '<p class="empty-note">Loading the reorder plan…</p>', ""); }
+    if (s.error) {
+      setChip("stock", "Open");
+      return areaShell("stock", "", '<p class="empty-note">' + esc(s.error) + ' <button type="button" class="link" data-stock-retry="1">Try again</button></p>', "");
+    }
+    const c = s.counts || {}, now = c["Order now"] || 0, soon = c["Order soon"] || 0;
+    setChip("stock", now || soon ? plural(now + soon, "to order", "to order") : "Nothing to order");
+    if (!s.as_of) return areaShell("stock", "no data yet", '<p class="empty-note">Nothing imported yet. Open Stock and import the CSV files.</p>', "");
+    const items = (s.items || []).slice(0, PHONE.matches ? 8 : LIST_CAP);   // phones: a short list, the rest in Stock
+    const body = items.length ? '<ul class="rows">' + items.map((x, i) =>
+      '<li class="fit"><button type="button" class="row" data-stock="' + i + '"><span class="t"><span>' + esc(x.name) + '</span><small class="stock-meta">' + stockMeta(x) + "</small></span>" +
+      "</button></li>").join("") + "</ul>" +
+      moreBtn("stock", (s.total || 0) - items.length)
+      : '<p class="empty-note">Nothing needs ordering this month or next.</p>';
+    const fig = (n, what) => "<span><b>" + n + "</b> " + what + "</span>";
+    const foot = fig(c.Overstock || 0, "overstock") + "<span>posted to " + esc(s.as_of) + " BS</span>";
+    return areaShell("stock", now || soon ? now + " now, " + soon + " soon" : "nothing due", body, foot);
+  }
+  const qtyFmt = (n, unit) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(n || 0)) + (unit ? " " + esc(unit) : "");
+  function stockPanel(x) {
+    openPanel(esc(x.name), "var(--o)",
+      '<p class="why"><i class="dot" style="--i:' + STOCK_INK[x.status] + '"></i><b>' + esc(x.status) + ".</b> " +
+      (x.months_late > 0 ? "The order-by month has passed: " + esc(x.order_by) + "." : esc(stockWhen(x)) + ".") + "</p>" +
+      '<dl class="facts"><dt>In stock</dt><dd' + (Number(x.stock) < 0 ? ' class="bad"' : "") + ">" + qtyFmt(x.stock, x.unit) + "</dd>" +
+      "<dt>Suggested order</dt><dd>" + (x.qty ? qtyFmt(x.qty, x.unit) : "–") + "</dd>" +
+      "<dt>Order by</dt><dd" + (x.months_late > 0 ? ' class="bad"' : "") + ">" + esc(x.order_by || "–") + (x.months_late > 0 ? ", " + plural(x.months_late, "month", "months") + " late" : "") + "</dd>" +
+      "<dt>Needed in</dt><dd>" + esc(x.need || "–") + "</dd>" +
+      "<dt>Group</dt><dd>" + esc(x.group) + (x.sub ? " / " + esc(x.sub) : "") + "</dd>" +
+      "<dt>Code</dt><dd>" + esc(x.code) + "</dd></dl>" +
+      '<div class="actions"><button type="button" class="btn" data-open="stock">Open Stock</button></div>');
+  }
+
   // Clicks inside the work areas
   $("areas").addEventListener("click", (e) => {
     const t = e.target;
@@ -561,6 +637,8 @@
     const chq = t.closest("[data-cheques]"); if (chq) return chequePanel(chq.dataset.cheques);
     const cc = t.closest("[data-cc]"); if (cc) return ccPanel(covGroups.red[Number(cc.dataset.cc)]);
     if (t.closest("[data-watch]")) return watchPanel();
+    const st = t.closest("[data-stock]"); if (st && stock && stock.items) return stockPanel(stock.items[Number(st.dataset.stock)]);
+    if (t.closest("[data-stock-retry]")) return loadStock();
   });
 
   // ---------- drill-down panel ----------
@@ -640,6 +718,8 @@
       label: x.customer, hint: (hhmm(x.from) || "") + (x.engineers ? " · " + x.engineers : ""), go: () => callPanel(x) }));
     if (home.coverage) [...covGroups.red, ...covGroups.watch].forEach((g) => index.push({ app: "coverage", text: g.name + " " + g.rows.map((r) => r.part).join(" "),
       label: g.name, hint: g.red.length ? "Over-supplied" : "To watch", go: () => ccPanel(g) }));
+    if (stock && stock.items) stock.items.forEach((x) => index.push({ app: "stock", text: x.name + " " + x.code + " " + (x.group || ""),
+      label: x.name, hint: x.months_late > 0 ? "Order now, late" : x.status, go: () => stockPanel(x) }));
   }
   function taskPanel(o, isLate) {
     const label = $("areas").querySelector('.tick[data-key="' + CSS.escape(o.task.id + "|" + o.due) + '"]');
@@ -766,7 +846,7 @@
         const cov = u.coverage_user ? u.coverage_user + (((roster.coverage_accounts || []).find((x) => x.username === u.coverage_user) || {}).active === false ? ", inactive" : "") : null;
         const apps = access("var(--m)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) + access("var(--c)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
           access("var(--y)", "DPR", dpr) + access("var(--g)", "Coverage", cov) +
-          access("var(--ok)", "Stock", u.stock_role ? STOCK_LABEL[u.stock_role] : null);
+          access("var(--o)", "Stock", u.stock_role ? STOCK_LABEL[u.stock_role] : null);
         const state = !u.active ? '<span class="state">Can\'t sign in</span>' : !u.password_set ? '<span class="state warn">Needs a password</span>' : '<span class="state on">Active</span>';
         return '<tr class="pick" data-edit="' + u.id + '" tabindex="0"><td><strong>' + esc(u.full_name) + "</strong>" + (u.is_admin ? " · Admin" : "") +
           '<span class="sub">' + esc(u.username) + "</span></td><td>" + (apps || '<span class="muted">No apps</span>') + "</td>" +
@@ -886,7 +966,7 @@
     const br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
     return [br, os].filter(Boolean).join(" on ");
   }
-  const EVENT_INK = { open_csrc: "var(--c)", open_tasks: "var(--m)", open_dpr: "var(--y)", open_coverage: "var(--g)", open_stock: "var(--ok)", sign_in: "var(--k)" };
+  const EVENT_INK = { open_csrc: "var(--c)", open_tasks: "var(--m)", open_dpr: "var(--y)", open_coverage: "var(--g)", open_stock: "var(--o)", sign_in: "var(--k)" };
   function renderActivity() {
     const p = $("f-person").value;
     const rows = activityRows.filter((r) => (!p || r.username === p) && (!activityEvent || r.event === activityEvent));
