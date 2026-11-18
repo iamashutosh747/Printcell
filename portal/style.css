@@ -284,6 +284,15 @@ button.row:hover { background: var(--soft); }
 /* ---------- settings, people, activity ---------- */
 .page .sheet { margin-bottom: 16px; }
 .narrow { max-width: 520px; }
+.back-link { display: none; font-size: 14px; font-weight: 600; margin-bottom: 6px; text-decoration-color: var(--rule-2); }
+.back-link::before { content: "‹ "; }
+.row-links { display: grid; padding: 4px 8px 10px; }
+.row-links a { display: grid; gap: 1px; padding: 12px 40px 12px 14px; border-radius: var(--r); text-decoration: none; color: var(--ink); position: relative; }
+.row-links a + a { border-top: 1px solid var(--rule); }
+.row-links a span { font-weight: 600; }
+.row-links a small { font-size: 13.5px; color: var(--ink-3); }
+.row-links a::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; border: solid var(--ink-3); border-width: 1.5px 1.5px 0 0; transform: translateY(-50%) rotate(45deg); }
+.row-links a:hover { background: var(--soft); }
 .stack { display: grid; gap: 14px; padding: 16px 22px 22px; }
 .page .sheet > .msg { padding: 0 22px 18px; }
 .tbl-wrap { overflow: auto; }
@@ -326,6 +335,8 @@ button.row:hover { background: var(--soft); }
     padding: 12px 16px 10px; border-right: 0; border-bottom: 1px solid var(--rule); }
   .who { flex: 1; }
   .rail-foot { margin: 0; flex-direction: row; gap: 0; }
+  /* People and Activity are reached from Settings on phones; the top bar keeps Settings and Sign out. */
+  .back-link { display: inline-block; }
   .rail-foot a[data-nav="admin"], .rail-foot a[data-nav="activity"] { display: none !important; }
   .rail-foot a, .rail-foot button { padding: 6px 8px; font-size: 13.5px; }
   .chips { order: 3; width: calc(100% + 32px); flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 4px; gap: 8px; }

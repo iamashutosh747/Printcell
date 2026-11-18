@@ -75,10 +75,18 @@
           </form>
           <p class="msg" id="pw-msg" role="status"></p>
         </section>
+        <section class="sheet narrow admin-only hidden" id="admin-links" style="--band:var(--k)">
+          <h2>Administration</h2>
+          <nav class="row-links" aria-label="Administration">
+            <a href="#/admin"><span>People</span><small>Add people, set passwords, and choose which apps each person can open</small></a>
+            <a href="#/activity"><span>Activity</span><small>Sign-ins and apps opened, newest first</small></a>
+          </nav>
+        </section>
       </main>
 
       <!-- Admin: people and access -->
       <main class="page hidden" id="admin-view">
+        <a class="back-link" href="#/settings">Settings</a>
         <header class="bar"><h1>People</h1>
           <input class="filter" id="people-q" type="search" placeholder="Find a person" aria-label="Find a person">
           <button type="button" class="btn" id="add-person">Add person</button></header>
@@ -88,6 +96,7 @@
 
       <!-- Admin: activity -->
       <main class="page hidden" id="activity-view">
+        <a class="back-link" href="#/settings">Settings</a>
         <header class="bar"><h1>Activity</h1>
           <select id="f-person" aria-label="Person"></select>
           <div class="seg" id="f-event" role="group" aria-label="What happened">
