@@ -843,7 +843,8 @@
     $("people").innerHTML = rows.length ? '<table><thead><tr><th>Person</th><th>Apps</th><th class="hide-sm">Last sign-in</th><th>Status</th></tr></thead><tbody>' +
       rows.map((u) => {
         const dpr = u.dpr_role ? (u.dpr_role === "agent" ? "agent " + u.dpr_agent_name : DPR_LABEL[u.dpr_role].toLowerCase()) + (u.dpr_can_export ? ", export" : "") : null;
-        const cov = u.coverage_user ? u.coverage_user + (((roster.coverage_accounts || []).find((x) => x.username === u.coverage_user) || {}).active === false ? ", inactive" : "") : null;
+        const covLinked = u.coverage_user && ((roster.coverage_accounts || []).find((x) => x.username === u.coverage_user) || {}).active !== false;
+        const cov = u.coverage_access || covLinked ? "can open" : null;
         const apps = access("var(--m)", "Tasks", acctLabel(roster.task_accounts, u.task_user_id)) + access("var(--c)", "CSRC", acctLabel(roster.csrc_accounts, u.csrc_user_id)) +
           access("var(--y)", "DPR", dpr) + access("var(--g)", "Coverage", cov) +
           access("var(--o)", "Stock", u.stock_role ? STOCK_LABEL[u.stock_role] : null);
@@ -863,15 +864,6 @@
         (a.active ? "" : " – inactive") + (other ? " – linked to someone else" : "") + "</option>";
     }).join("");
     sel.value = currentId || "";
-  }
-  function fillCoverage(current) {
-    const taken = new Set(roster.users.filter((u) => u.id !== editing && u.coverage_user).map((u) => u.coverage_user));
-    $("e-coverage").innerHTML = '<option value="">No access</option>' + (roster.coverage_accounts || []).map((a) => {
-      const other = taken.has(a.username);
-      return '<option value="' + esc(a.username) + '"' + (other ? " disabled" : "") + ">" + esc((a.full_name || a.username) + " (" + a.username + ")") +
-        (a.active ? "" : " – inactive") + (other ? " – linked to someone else" : "") + "</option>";
-    }).join("");
-    $("e-coverage").value = current || "";
   }
   function syncDprFields() {
     const r = $("e-dpr").value;
@@ -895,7 +887,7 @@
     $("e-active").disabled = $("e-admin").disabled = !!isSelf;
     fillSelect($("e-csrc"), roster.csrc_accounts, "csrc_user_id", u && u.csrc_user_id);
     fillSelect($("e-tasks"), roster.task_accounts, "task_user_id", u && u.task_user_id);
-    fillCoverage(u && u.coverage_user);
+    $("e-coverage").value = u && u.coverage_access ? "yes" : "";
     $("e-stock").value = (u && u.stock_role) || "";
     $("e-dpr").value = (u && u.dpr_role) || "";
     $("e-agent").innerHTML = '<option value="">Pick an agent</option>' + roster.dpr_agents.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>").join("");
@@ -930,7 +922,7 @@
       full_name: $("e-name").value.trim(), username: $("e-user").value.trim().toLowerCase(),
       password: pass || undefined, active: $("e-active").checked, is_admin: $("e-admin").checked,
       csrc_user_id: $("e-csrc").value || null, task_user_id: $("e-tasks").value || null,
-      coverage_user: $("e-coverage").value || null,
+      coverage_access: $("e-coverage").value === "yes",
       stock_role: $("e-stock").value || null,
       dpr_role: $("e-dpr").value || null, dpr_agent_name: $("e-agent").value || null, dpr_can_export: $("e-export").checked,
     };

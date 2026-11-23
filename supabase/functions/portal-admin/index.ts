@@ -72,7 +72,10 @@ function clean(u: Record<string, unknown>) {
     active: u.active !== false,
     csrc_user_id: link(u.csrc_user_id),
     task_user_id: link(u.task_user_id),
-    coverage_user: covUser(u.coverage_user),
+    // Coverage is a switch on the person. Each Coverage field is only touched when the caller sends it, so an
+    // older copy of the admin screen can't switch the access off, and nothing unlinks an existing account.
+    ...("coverage_access" in u ? { coverage_access: u.coverage_access === true } : {}),
+    ...("coverage_user" in u ? { coverage_user: covUser(u.coverage_user) } : {}),
     dpr_role, dpr_agent_name,
     dpr_can_export: dpr_role ? u.dpr_can_export === true : false,
     stock_role,

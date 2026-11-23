@@ -52,10 +52,11 @@ Deno.serve(async (req) => {
       return json({ post: app.url });
     }
     if (body.app === "coverage") {
+      // Access is the coverage_access switch, or an active linked cov_users account (how it worked before).
       const { data: cv } = me.coverage_user
         ? await admin.from("cov_users").select("username, active").eq("username", me.coverage_user).maybeSingle()
         : { data: null };
-      if (!cv?.active) return fail(403, `You don't have ${app.name} access. Ask an admin.`);
+      if (!me.coverage_access && !cv?.active) return fail(403, `You don't have ${app.name} access. Ask an admin.`);
       await admin.from("portal_activity").insert({
         user_id: me.id, username: me.username, event: app.event,
         user_agent: (req.headers.get("user-agent") || "").slice(0, 300),
